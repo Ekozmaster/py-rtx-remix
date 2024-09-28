@@ -1,0 +1,767 @@
+import ctypes
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import List
+
+from api_data_types import _STypes, Float3D, _CameraInfoParameterizedEXT, _CameraInfo, Float2D, _HardcodedVertex, \
+    _MeshInfoSkinning, _MeshInfoSurfaceTriangles, _MeshInfo, _Transform, _InstanceInfo, _LightInfoLightShaping, \
+    _LightInfo, _LightInfoSphereEXT, CategoryFlags, FilterModes, WrapModes, _MaterialInfo, BlendTypes, \
+    _MaterialInfoOpaqueEXT, AlphaTestTypes, _MaterialInfoOpaqueSubsurfaceEXT, _MaterialInfoTranslucentEXT, \
+    _MaterialInfoPortalEXT
+from exceptions import WrongSkinningDataCount, MissmatchingSkinningDataArrays
+
+
+class CameraTypes:
+    WORLD = 0
+    SKY = 1
+    VIEW_MODEL = 2
+
+
+class Camera:
+    def __init__(
+        self,
+        cam_type: int = CameraTypes.WORLD,
+        position: Float3D = Float3D(0, 0, 0),
+        forward: Float3D = Float3D(0, 0, 1),
+        up: Float3D = Float3D(0, 1, 0),
+        right: Float3D = Float3D(1, 0, 0),
+        fov_y: float = 70,
+        aspect: float = 16.0/9.0,
+        near_plane: float = 0.1,
+        far_plane: float = 1000.0,
+    ):
+        """
+        General camera class used to render in World, View Model or Sky mode.
+
+        :param cam_type: Sets the camera mode/purpose. One of CameraTypes values: WORLD, VIEW_MODEL or SKY.
+        :param position: Position vector. i.e: Float3D(0, 0, 0)
+        :param forward: Forward vector. i.e: Float3D(0, 0, 1)
+        :param up: Up vector. i.e: Float3D(0, 1, 0)
+        :param right: Right vector. i.e: Float3D(1, 0, 0)
+        :param fov_y: FOV angle in degrees from the Y axis.
+        :param aspect: Aspect ratio of the screen. i.e: 16.0/9.0 for FHD screens.
+        :param near_plane: Nearest clipping plane to render. Anything behind it won't render.
+        :param far_plane: Farthest clipping plane to render. Anything further it won't render.
+        """
+        self.cam_type = cam_type
+        self.position = position
+        self.forward = forward
+        self.up = up
+        self.right = right
+        self.fov_y = fov_y
+        self.aspect = aspect
+        self.near_plane = near_plane
+        self.far_plane = far_plane
+        self.cam_params_info: _CameraInfoParameterizedEXT | None = None
+
+    def as_struct(self) -> _CameraInfo:
+        """Returns the internal structure form suitable for DLL interop via ctypes."""
+        self.cam_params_info = _CameraInfoParameterizedEXT()
+        self.cam_params_info.sType = _STypes.CAMERA_INFO_PARAMETERIZED_EXT
+        self.cam_params_info.pNext = 0
+        self.cam_params_info.position = self.position
+        self.cam_params_info.forward = self.forward
+        self.cam_params_info.up = self.up
+        self.cam_params_info.right = self.right
+        self.cam_params_info.fovYInDegrees = self.fov_y
+        self.cam_params_info.aspect = self.aspect
+        self.cam_params_info.nearPlane = self.near_plane
+        self.cam_params_info.farPlane = self.far_plane
+
+        cam_info = _CameraInfo()
+        cam_info.sType = _STypes.CAMERA_INFO
+        cam_info.type = self.cam_type
+        cam_info.pNext = ctypes.cast(ctypes.byref(self.cam_params_info), ctypes.c_void_p)
+        return cam_info
+
+
+class Vertex:
+    def __init__(
+        self,
+        position: Float3D = Float3D(0, 0, 0),
+        normal: Float3D = Float3D(0, 0, 1),
+        texcoord: Float2D = Float2D(0, 0),
+        color: int = 0xFFFFFFFF
+    ):
+        """
+        Vertex class featuring position, normal, 1 UV/tex coord and 1 color.
+        Manipulating data from python to C is very slow. For real scenarios consider using an asset loader in C instead.
+        :param position: Position vector.
+        :param normal: Normal vector.
+        :param texcoord: UV coordinate.
+        :param color: Vertex color packed into a 32bit unsigned int.
+        """
+        self.position: Float3D = position
+        self.normal: Float3D = normal
+        self.texcoord: Float2D = texcoord
+        self.color: int = color
+
+    def as_struct(self) -> _HardcodedVertex:
+        """Returns the internal structure form suitable for DLL interop via ctypes."""
+        vertex = _HardcodedVertex()
+        vertex.position[0] = self.position.x
+        vertex.position[1] = self.position.y
+        vertex.position[2] = self.position.z
+        vertex.normal[0] = self.normal.x
+        vertex.normal[1] = self.normal.y
+        vertex.normal[2] = self.normal.z
+        vertex.texcoord[0] = self.texcoord.x
+        vertex.texcoord[1] = self.texcoord.y
+        vertex.color = ctypes.c_uint32(self.color)
+        return vertex
+
+
+# TODO: Implement SKINNING_ARRAY data types to store raw data array pointers + size as optional argument types.
+class SkinningData:
+    def __init__(
+        self,
+        bones_per_vertex: int,
+        blend_weights: List[float],
+        blend_indices: List[int],
+    ):
+        """
+        Defines skinning data for deforming a MeshSurface based on the MeshInstance's Skeleton transforms array.
+        The layout of Weights and Indices are dependent on 'bones_per_vertex'.
+
+        I.e: For 2 bones per vertex:
+            [v0-bone0, v0-bone1, v1-bone0, v1-bone1, ...].
+
+        :param bones_per_vertex: How many bones influence each vertex. 4 is a common value.
+        :param blend_weights: Normalized influence weight of each bone over each vertex.
+        :param blend_indices: Per vertex bones indices in the MeshInstance skeleton array.
+        """
+        self.bones_per_vertex = bones_per_vertex
+        self.blend_weights = blend_weights
+        self.blend_indices = blend_indices
+        self.blend_weights_array = None
+        self.blend_index_array = None
+        self.skinning_struct: _MeshInfoSkinning | None = None
+        self.check_for_errors()
+
+    def check_for_errors(self):
+        blend_vertices_remainder = len(self.blend_weights) % self.bones_per_vertex
+        if blend_vertices_remainder != 0:
+            raise MissmatchingSkinningDataArrays("blend_weights should be multiple of bones_per_vertex.")
+
+        blend_indices_remainder = len(self.blend_indices) % self.bones_per_vertex
+        if blend_indices_remainder != 0:
+            raise MissmatchingSkinningDataArrays("blend_indices should be multiple of bones_per_vertex.")
+
+    def as_struct(self) -> _MeshInfoSkinning:
+        """Returns the internal structure form suitable for DLL interop via ctypes."""
+        self.check_for_errors()
+
+        blend_weights_count = len(self.blend_weights)
+        self.blend_weights_array = (ctypes.c_float * blend_weights_count)()
+        for i, weight in enumerate(self.blend_weights):
+            self.blend_weights_array[i] = weight
+
+        index_count = len(self.blend_indices)
+        self.blend_index_array = (ctypes.c_uint32 * index_count)()
+        for i, idx in enumerate(self.blend_indices):
+            self.blend_index_array[i] = idx
+
+        self.skinning_struct = _MeshInfoSkinning()
+        self.skinning_struct.bonesPerVertex = self.bones_per_vertex
+        self.skinning_struct.blendWeights_values = ctypes.cast(self.blend_weights_array, ctypes.POINTER(ctypes.c_float))
+        self.skinning_struct.blendWeights_count = blend_weights_count
+        self.skinning_struct.blendIndices_values = ctypes.cast(self.blend_index_array, ctypes.POINTER(ctypes.c_uint32))
+        self.skinning_struct.blendIndices_count = index_count
+        return self.skinning_struct
+
+
+# TODO: Implement VERTEX_ARRAY data type to store raw _HardcodedVertex array pointer + size as optional 'vertices' type.
+class MeshSurface:
+    def __init__(self, vertices: List[_HardcodedVertex], indices: List[int], skinning_data: SkinningData | None = None):
+        """
+        Defines a mesh "surface".
+
+        Meshes can have multiple surfaces, i.e. to assign different materials or skinning info in a single mesh.
+
+        :param vertices: A list of ctypes-ready vertices struct.
+        :param indices: A list of indices to define triangles out of the vertices.
+        """
+        self.vertices = vertices
+        self.indices = indices
+        self.vertex_array = None
+        self.index_array = None
+        self.skinning_data = skinning_data
+        self.check_for_errors()
+
+    def check_for_errors(self):
+        if self.skinning_data:
+            blend_vertices = len(self.skinning_data.blend_weights) / self.skinning_data.bones_per_vertex
+            if blend_vertices != len(self.vertices):
+                raise WrongSkinningDataCount("SkinningData.blend_weights don't match MeshSurface.vertices count.")
+
+    def as_struct(self) -> _MeshInfoSurfaceTriangles:
+        """Returns the internal structure form suitable for DLL interop via ctypes."""
+        self.check_for_errors()
+
+        self.vertex_array = (_HardcodedVertex * len(self.vertices))()
+        vertex_count = len(self.vertices)
+        for i, vertex in enumerate(self.vertices):
+            self.vertex_array[i] = vertex
+
+        self.index_array = (ctypes.c_uint32 * len(self.indices))()
+        index_count = len(self.indices)
+        for i, idx in enumerate(self.indices):
+            self.index_array[i] = idx
+
+        mesh_surface_info = _MeshInfoSurfaceTriangles()
+        mesh_surface_info.vertices_values = ctypes.cast(self.vertex_array, ctypes.POINTER(_HardcodedVertex))
+        mesh_surface_info.vertices_count = vertex_count
+        mesh_surface_info.indices_values = ctypes.cast(self.index_array, ctypes.POINTER(ctypes.c_uint32))
+        mesh_surface_info.indices_count = index_count
+        mesh_surface_info.skinning_hasvalue = 1 if self.skinning_data is not None else 0
+        mesh_surface_info.skinning_value = self.skinning_data.as_struct() if self.skinning_data else _MeshInfoSkinning()
+        mesh_surface_info.material = None  # TODO: Implement materials.
+        return mesh_surface_info
+
+
+class Mesh:
+    def __init__(self, surfaces: List[_MeshInfoSurfaceTriangles], mesh_hash: int = 0x1):
+        """
+        Defines and manages a Mesh Asset (not instance) within Remix engine.
+
+        :param surfaces: A list of surfaces composing the mesh in ctypes-ready format.
+        :param mesh_hash: A 64bit uint HASH to uniquely identify this mesh asset. You should manage your own hashes.
+        """
+        self.handle: ctypes.c_void_p = ctypes.c_void_p(0)
+        self.mesh_hash = mesh_hash
+        self.num_surfaces = len(surfaces)
+        self.surfaces_array = (_MeshInfoSurfaceTriangles * self.num_surfaces)()
+        for i, surface in enumerate(surfaces):
+            self.surfaces_array[i] = surface
+
+    def as_struct(self) -> _MeshInfo:
+        """Returns the internal structure form suitable for DLL interop via ctypes."""
+        mesh_info = _MeshInfo()
+        mesh_info.sType = _STypes.MESH_INFO
+        mesh_info.pNext = None
+        mesh_info.hash = self.mesh_hash
+        mesh_info.surfaces_values = ctypes.cast(self.surfaces_array, ctypes.POINTER(_MeshInfoSurfaceTriangles))
+        mesh_info.surfaces_count = self.num_surfaces
+        return mesh_info
+
+
+class Transform:
+    def __init__(self, matrix: List[List[float]] | None = None):
+        """
+        Transform class that holds a 3x4 matrix allowing for position, rotation, scaling and shear transformations.
+
+        :param matrix: The 3x4 matrix values in Row-Major format per DirectX convention. i.e: Move 3 units to the right:
+            [
+                [1, 0, 0, 3],
+                [0, 1, 0, 0],
+                [0, 0, 1, 0],
+            ]
+        """
+        self.matrix = matrix
+        if not self.matrix:
+            self.reset()
+
+    def as_struct(self):
+        """Returns the internal structure form suitable for DLL interop via ctypes."""
+        transform = _Transform()
+
+        for n, row in enumerate(self.matrix):
+            for m, column in enumerate(row):
+                transform.matrix[n][m] = column
+
+        return transform
+
+    def reset(self):
+        self.matrix = [
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, 1, 0]
+        ]
+
+
+class MeshInstance:
+    def __init__(
+        self,
+        mesh: Mesh,
+        category_flags: ctypes.c_uint32 = CategoryFlags.NONE,
+        transform: Transform = Transform(),
+        double_sided: int = 1,
+    ):
+        """
+        Defines and manages a Mesh Instance out of a Mesh Asset.
+        One mesh can appear in multiple times (instances) with different properties in a scene.
+
+        :param mesh: The mesh asset this instance refers to.
+        :param category_flags: Bitwise OR'd Remix category flags like Sky, Ignore, Decal or Terrain.
+        :param transform: The transform for positioning this mesh instance in the scene.
+        :param double_sided: If the backface of the surfaces/polygons are visible.
+        """
+        self.mesh = mesh
+        self.category_flags = category_flags
+        self.transform = transform
+        self.transform_struct = transform.as_struct()
+        self.double_sided = double_sided
+
+    def as_struct(self):
+        """Returns the internal structure form suitable for DLL interop via ctypes."""
+        instance_info = _InstanceInfo()
+        instance_info.sType = _STypes.INSTANCE_INFO
+        instance_info.pNext = 0
+        instance_info.mesh = ctypes.cast(self.mesh.handle, ctypes.c_void_p)
+        instance_info.transform = self.transform_struct
+        instance_info.doubleSided = self.double_sided
+        return instance_info
+
+
+class Light(ABC):
+    @abstractmethod
+    def __init__(
+        self,
+        light_hash: ctypes.c_uint64,
+        radiance: Float3D = Float3D(1, 1, 1),
+    ):
+        """
+        Abstract class for all light types common logic.
+
+        :param light_hash: 64bit hash for uniquely representing the light within Remix engine.
+        :param radiance: Intensity and color of the light.
+        """
+        self.handle: ctypes.c_void_p = ctypes.c_void_p(0)
+        if not light_hash:
+            raise ValueError(f"Light hash must be a value bigger than 0. Got {light_hash} instead.")
+        self.light_hash = light_hash
+        self.radiance = radiance
+
+    @abstractmethod
+    def as_struct(self, _child_struct: ctypes.Structure = None) -> _LightInfo:
+        """Returns the internal structure form suitable for DLL interop via ctypes."""
+        light_info = _LightInfo()
+        light_info.sType = _STypes.LIGHT_INFO
+        light_info.pNext = ctypes.cast(ctypes.byref(_child_struct), ctypes.c_void_p)
+        light_info.hash = self.light_hash
+        light_info.radiance = self.radiance
+        return light_info
+
+
+class LightShapingInfo:
+    def __init__(
+        self,
+        direction: Float3D = Float3D(0, -1, 0),
+        cone_angle: float = 0,
+        cone_softness: float = 0,
+        focus_exponent: float = 0,
+    ):
+        # TODO: Add docstring.
+        self.direction = direction
+        self.cone_angle = cone_angle
+        self.cone_softness = cone_softness
+        self.focus_exponent = focus_exponent
+
+    def as_struct(self) -> _LightInfoLightShaping:
+        """Returns the internal structure form suitable for DLL interop via ctypes."""
+        light_shaping_struct = _LightInfoLightShaping()
+        light_shaping_struct.direction = self.direction
+        light_shaping_struct.coneAngleDegrees = self.cone_angle
+        light_shaping_struct.coneSoftness = self.cone_softness
+        light_shaping_struct.focusExponent = self.focus_exponent
+        return light_shaping_struct
+
+
+class SphereLight(Light):
+    def __init__(
+        self,
+        light_hash: ctypes.c_uint64,
+        position: Float3D = Float3D(0, 0, 0),
+        radius: float = 0.1,
+        radiance: Float3D = Float3D(1, 1, 1),
+        shaping_value: LightShapingInfo = None,
+    ):
+        """
+        Defines a Sphere light type.
+
+        :param light_hash: A 64bit uint HASH to uniquely identify this light. You should manage your own hashes.
+        :param position: The light position.
+        :param radius: The radius of the sphere light. Anything inside it won't be lit by it.
+        :param radiance: RGB Color+Intensity of the light encoded in Float3D format.
+        :param shaping_value: The focal cone shaping for the Light.
+        """
+        self.position = position
+        self.radius = radius
+        self.shaping_value = shaping_value
+        self.sphere_light_info: _LightInfoSphereEXT | None = None
+        super().__init__(light_hash, radiance)
+
+    def as_struct(self, _: None = None) -> _LightInfo:
+        """Returns the internal structure form suitable for DLL interop via ctypes."""
+        self.sphere_light_info = _LightInfoSphereEXT()
+        self.sphere_light_info.sType = _STypes.LIGHT_INFO_SPHERE_EXT
+        self.sphere_light_info.pNext = None
+        self.sphere_light_info.position = self.position
+        self.sphere_light_info.radius = self.radius
+        self.sphere_light_info.shaping_hasvalue = 1 if self.shaping_value else 0
+        if self.shaping_value:
+            self.sphere_light_info.shaping_value = self.shaping_value.as_struct()
+
+        return super().as_struct(self.sphere_light_info)
+
+
+# TODO: Add more light types.
+# TODO: Add an integration test case scene with all light types.
+
+
+class Material(ABC):
+    @abstractmethod
+    def __init__(
+        self,
+        mat_hash: ctypes.c_uint64,
+        albedo_texture: str | Path = "",
+        normal_texture: str | Path = "",
+        tangent_texture: str | Path = "",
+        emissive_texture: str | Path = "",
+        emissive_intensity: float = 0,
+        emissive_color_constant: Float3D = Float3D(0, 0, 0),
+        sprite_sheet_row: int = 0,
+        sprite_sheet_col: int = 0,
+        sprite_sheet_fps: int = 0,
+        filter_mode: int = FilterModes.LINEAR,
+        wrap_mode_u: int = WrapModes.REPEAT,
+        wrap_mode_v: int = WrapModes.REPEAT,
+    ):
+        """
+        Abstract class to define materials like OpacityPBR, TranslucentPBR or Portal.
+
+        :param mat_hash: 64bit uint HASH to uniquely identify this material. You should manage your own hashes.
+        :param albedo_texture: Path to the .dds (BC7) albedo texture.
+        :param normal_texture: Path to the .dds (BC5 - Octahedral) normal texture.
+        :param tangent_texture: Path to the .dds (BC5, I guess?) tangent texture.
+        :param emissive_texture: Path to the .dds (BC7) emissive texture.
+        :param emissive_intensity: Emissive intensity
+        :param emissive_color_constant: Color constant to use as emissive if no texture is provided.
+        :param sprite_sheet_row: Row count for the animation sprite sheet grid.
+        :param sprite_sheet_col: Column count for the animation sprite sheet grid.
+        :param sprite_sheet_fps: Sprite sheet frames per second to play.
+        :param filter_mode: Which filter to apply to the textures.
+        :param wrap_mode_u: What to do with UV coordinates outside 0-1 range in U/X direction.
+        :param wrap_mode_v: What to do with UV coordinates outside 0-1 range in V/Y direction.
+        """
+        self.handle: ctypes.c_void_p = ctypes.c_void_p(0)
+        # TODO: Integration test for creation and deletion of materials.
+        # TODO: Integration test for updating materials.
+        self.mat_hash = mat_hash
+        self.albedo_texture = albedo_texture
+        self.normal_texture = normal_texture
+        self.tangent_texture = tangent_texture
+        self.emissive_texture = emissive_texture
+        self.emissive_intensity = emissive_intensity
+        self.emissive_color_constant = emissive_color_constant
+        self.sprite_sheet_row = sprite_sheet_row
+        self.sprite_sheet_col = sprite_sheet_col
+        self.sprite_sheet_fps = sprite_sheet_fps
+        self.filter_mode = filter_mode
+        self.wrap_mode_u = wrap_mode_u
+        self.wrap_mode_v = wrap_mode_v
+
+    @abstractmethod
+    def as_struct(self, _child_struct: ctypes.Structure) -> _MaterialInfo:
+        """Returns the internal structure form suitable for DLL interop via ctypes."""
+        material_info = _MaterialInfo()
+        material_info.sType = _STypes.MATERIAL_INFO
+        material_info.pNext = ctypes.cast(ctypes.byref(_child_struct), ctypes.c_void_p)
+        material_info.albedoTexture = str(self.albedo_texture)
+        material_info.normalTexture = str(self.normal_texture)
+        material_info.tangentTexture = str(self.tangent_texture)
+        material_info.emissiveTexture = str(self.emissive_texture)
+        material_info.emissiveIntensity = self.emissive_intensity
+        material_info.emissiveColorConstant = self.emissive_color_constant
+        material_info.spriteSheetRow = self.sprite_sheet_row
+        material_info.spriteSheetCol = self.sprite_sheet_col
+        material_info.spriteSheetFps = self.sprite_sheet_fps
+        material_info.filterMode = self.filter_mode
+        material_info.wrapModeU = self.wrap_mode_u
+        material_info.wrapModeV = self.wrap_mode_v
+        return material_info
+
+
+class OpacitySSSData:
+    def __init__(
+        self,
+        transmittance_texture: str | Path = "",
+        thickness_texture: str | Path = "",
+        single_scattering_albedo_texture: str | Path = "",
+        transmittance_color: Float3D = Float3D(0, 0, 0),
+        measurement_distance: float = 0.1,
+        single_scattering_albedo: Float3D = Float3D(0, 0, 0),
+        volumetric_anisotropy: float = 0,
+    ):
+        # TODO: Add docstring.
+        self.transmittance_texture = transmittance_texture
+        self.thickness_texture = thickness_texture
+        self.single_scattering_albedo_texture = single_scattering_albedo_texture
+        self.transmittance_color = transmittance_color
+        self.measurement_distance = measurement_distance
+        self.single_scattering_albedo = single_scattering_albedo
+        self.volumetric_anisotropy = volumetric_anisotropy
+        self.sss_info: _MaterialInfoOpaqueSubsurfaceEXT | None = None
+
+    def as_struct(self):
+        """Returns the internal structure form suitable for DLL interop via ctypes."""
+        self.sss_info = _MaterialInfoOpaqueSubsurfaceEXT()
+        self.sss_info.sType = _STypes.MATERIAL_INFO_OPAQUE_SUBSURFACE_EXT
+        self.sss_info.pNext = None
+        self.sss_info.subsurfaceTransmittanceTexture = str(self.transmittance_texture)
+        self.sss_info.subsurfaceThicknessTexture = str(self.thickness_texture)
+        self.sss_info.subsurfaceSingleScatteringAlbedoTexture = str(self.single_scattering_albedo_texture)
+        self.sss_info.subsurfaceTransmittanceColor = self.transmittance_color
+        self.sss_info.subsurfaceMeasurementDistance = self.measurement_distance
+        self.sss_info.subsurfaceSingleScatteringAlbedo = self.single_scattering_albedo
+        self.sss_info.subsurfaceVolumetricAnisotropy = self.volumetric_anisotropy
+        return self.sss_info
+
+
+class OpacityPBR(Material):
+    def __init__(
+        self,
+        # Base Material Parameters:
+        mat_hash: ctypes.c_uint64,
+        albedo_texture: str | Path = "",
+        normal_texture: str | Path = "",
+        tangent_texture: str | Path = "",
+        emissive_texture: str | Path = "",
+        emissive_intensity: float = 0,
+        emissive_color_constant: Float3D = Float3D(0, 0, 0),
+        sprite_sheet_row: int = 0,
+        sprite_sheet_col: int = 0,
+        sprite_sheet_fps: int = 0,
+        filter_mode: int = FilterModes.LINEAR,
+        wrap_mode_u: int = WrapModes.REPEAT,
+        wrap_mode_v: int = WrapModes.REPEAT,
+
+        # OpacityPBR Parameters:
+        roughness_texture: str | Path = "",
+        metallic_texture: str | Path = "",
+        anisotropy: float = 0,
+        albedo_constant: Float3D = Float3D(1, 1, 1),
+        opacity_constant: float = 1,
+        roughness_constant: float = 1,
+        metallic_constant: float = 0,
+        thin_film_thickness_value: float | None = None,
+        alpha_is_thin_film_thickness: bool = False,
+        height_texture: str | Path = "",
+        height_texture_strength: float = 0,
+        use_draw_call_alpha_state: bool = False,
+        blend_type_value: int | None = None,
+        inverted_blend: bool = False,
+        alpha_test_type: int = AlphaTestTypes.NEVER,
+        alpha_reference_value: int = 0,
+        subsurface_data: OpacitySSSData | None = None,
+    ):
+        """
+        Define an OpacityPBR material.
+
+        :param mat_hash: 64bit uint HASH to uniquely identify this material. You should manage your own hashes.
+        :param albedo_texture: Path to the .dds (BC7) albedo texture.
+        :param normal_texture: Path to the .dds (BC5 - Octahedral) normal texture.
+        :param tangent_texture: Path to the .dds (BC5, I guess?) tangent texture.
+        :param emissive_texture: Path to the .dds (BC7) emissive texture.
+        :param emissive_intensity: Emissive intensity
+        :param emissive_color_constant: Color constant to use as emissive if no texture is provided.
+        :param sprite_sheet_row: Row count for the animation sprite sheet grid.
+        :param sprite_sheet_col: Column count for the animation sprite sheet grid.
+        :param sprite_sheet_fps: Sprite sheet frames per second to play.
+        :param filter_mode: Which filter to apply to the textures.
+        :param wrap_mode_u: What to do with UV coordinates outside 0-1 range in U/X direction.
+        :param wrap_mode_v: What to do with UV coordinates outside 0-1 range in V/Y direction.
+
+        :param roughness_texture: Path to the .dds (BC4) roughness map texture.
+        :param metallic_texture: Path to the .dds (BC4) metallic map texture.
+        :param anisotropy: Anisotropy roughness effect intensity (0-1 range).
+        :param albedo_constant: Anisotropy roughness effect intensity (0-1 range).
+        :param opacity_constant: Opacity constant, if not provided by albedo_texture.
+        :param roughness_constant: Roughness constant to use if there is no roughness_texture.
+        :param metallic_constant: Metallic constant to use if there is no roughness_texture.
+        :param thin_film_thickness_value: Thickness of the thin film effect (colorful distortions on oil or bubbles).
+        :param alpha_is_thin_film_thickness: Use alpha channel do drive thin thickness instead.
+        :param height_texture: Path to the .dds (BC4) Height/Displacement (POM) texture.
+        :param height_texture_strength: POM max. depth in world-space texture size. i.e: A value of 0.1 for a 1sqr meter texture = 10cm max. depth.
+        :param use_draw_call_alpha_state: When injected in a dx9 game, whether it should use alpha flags from original draw call or not.
+        :param blend_type_value: Which blend type to use. Check BlendTypes class for more info.
+        :param inverted_blend: Should the alpha blending operation be inverted?
+        :param alpha_test_type: Type of alpha test operation to perform.
+        :param alpha_reference_value: The reference value to compute transparency from alpha channel.
+        """
+        # Base Material params.
+        self.mat_hash = mat_hash
+        self.albedo_texture = albedo_texture
+        self.normal_texture = normal_texture
+        self.tangent_texture = tangent_texture
+        self.emissive_texture = emissive_texture
+        self.emissive_intensity = emissive_intensity
+        self.emissive_color_constant = emissive_color_constant
+        self.sprite_sheet_row = sprite_sheet_row
+        self.sprite_sheet_col = sprite_sheet_col
+        self.sprite_sheet_fps = sprite_sheet_fps
+        self.filter_mode = filter_mode
+        self.wrap_mode_u = wrap_mode_u
+        self.wrap_mode_v = wrap_mode_v
+        # OpacityPBR params.
+        self.roughness_texture = roughness_texture
+        self.metallic_texture = metallic_texture
+        self.anisotropy = anisotropy
+        self.albedo_constant = albedo_constant
+        self.opacity_constant = opacity_constant
+        self.roughness_constant = roughness_constant
+        self.metallic_constant = metallic_constant
+        self.thin_film_thickness_value = thin_film_thickness_value
+        self.alpha_is_thin_film_thickness = alpha_is_thin_film_thickness
+        self.height_texture = height_texture
+        self.height_texture_strength = height_texture_strength
+        self.use_draw_call_alpha_state = use_draw_call_alpha_state
+        self.blend_type_value = blend_type_value
+        self.inverted_blend = inverted_blend
+        self.alpha_test_type = alpha_test_type
+        self.alpha_reference_value = alpha_reference_value
+        self.subsurface_data = subsurface_data
+        self.opaque_mat = None
+
+    def as_struct(self, _: None = None) -> _MaterialInfo:
+        """Returns the internal structure form suitable for DLL interop via ctypes."""
+        self.opaque_mat = _MaterialInfoOpaqueEXT()
+        self.opaque_mat.sType = _STypes.MATERIAL_INFO_OPAQUE_EXT
+        self.opaque_mat.pNext = None
+        if self.subsurface_data:
+            self.opaque_mat.pNext = ctypes.cast(ctypes.byref(self.subsurface_data.as_struct()), ctypes.c_void_p)
+        self.opaque_mat.roughnessTexture = str(self.roughness_texture)
+        self.opaque_mat.metallicTexture = str(self.metallic_texture)
+        self.opaque_mat.anisotropy = self.anisotropy
+        self.opaque_mat.albedoConstant = self.albedo_constant
+        self.opaque_mat.opacityConstant = self.opacity_constant
+        self.opaque_mat.roughnessConstant = self.roughness_constant
+        self.opaque_mat.metallicConstant = self.metallic_constant
+        self.opaque_mat.thinFilmThickness_hasvalue = 1 if self.thin_film_thickness_value is not None else 0
+        self.opaque_mat.thinFilmThickness_value = self.thin_film_thickness_value or 0
+        self.opaque_mat.alphaIsThinFilmThickness = self.alpha_is_thin_film_thickness
+        self.opaque_mat.heightTexture = str(self.height_texture)
+        self.opaque_mat.heightTextureStrength = self.height_texture_strength
+        self.opaque_mat.useDrawCallAlphaState = self.use_draw_call_alpha_state
+        self.opaque_mat.blendType_hasvalue = 1 if self.blend_type_value is not None else 0
+        self.opaque_mat.blendType_value = self.blend_type_value or BlendTypes.ALPHA
+        self.opaque_mat.invertedBlend = self.inverted_blend
+        self.opaque_mat.alphaTestType = self.alpha_test_type
+        self.opaque_mat.alphaReferenceValue = self.alpha_reference_value
+        return super().as_struct(self.opaque_mat)
+
+
+class TranslucentPBR(Material):
+    def __init__(
+        self,
+        # Base Material Parameters:
+        mat_hash: ctypes.c_uint64,
+        albedo_texture: str | Path = "",
+        normal_texture: str | Path = "",
+        tangent_texture: str | Path = "",
+        emissive_texture: str | Path = "",
+        emissive_intensity: float = 0,
+        emissive_color_constant: Float3D = Float3D(0, 0, 0),
+        sprite_sheet_row: int = 0,
+        sprite_sheet_col: int = 0,
+        sprite_sheet_fps: int = 0,
+        filter_mode: int = FilterModes.LINEAR,
+        wrap_mode_u: int = WrapModes.REPEAT,
+        wrap_mode_v: int = WrapModes.REPEAT,
+
+        # TranslucentPBR Parameters:
+        transmittance_texture: str | Path = "",
+        refractive_index: float = 0,
+        transmittance_color: Float3D = Float3D(0, 0, 0),
+        transmittance_measurement_distance: float = 0.1,
+        thin_wall_thickness: float | None = None,
+        use_diffuse_layer: bool = False,
+    ):
+        # TODO: Add docstring.
+        # Base Material params.
+        self.mat_hash = mat_hash
+        self.albedo_texture = albedo_texture
+        self.normal_texture = normal_texture
+        self.tangent_texture = tangent_texture
+        self.emissive_texture = emissive_texture
+        self.emissive_intensity = emissive_intensity
+        self.emissive_color_constant = emissive_color_constant
+        self.sprite_sheet_row = sprite_sheet_row
+        self.sprite_sheet_col = sprite_sheet_col
+        self.sprite_sheet_fps = sprite_sheet_fps
+        self.filter_mode = filter_mode
+        self.wrap_mode_u = wrap_mode_u
+        self.wrap_mode_v = wrap_mode_v
+        # TranslucentPBR params.
+        self.transmittance_texture = transmittance_texture
+        self.refractive_index = refractive_index
+        self.transmittance_color = transmittance_color
+        self.transmittance_measurement_distance = transmittance_measurement_distance
+        self.thin_wall_thickness = thin_wall_thickness
+        self.use_diffuse_layer = use_diffuse_layer
+        self.tranlucent_mat: _MaterialInfoTranslucentEXT | None = None
+
+    def as_struct(self, _: None = None) -> _MaterialInfo:
+        """Returns the internal structure form suitable for DLL interop via ctypes."""
+        self.tranlucent_mat = _MaterialInfoTranslucentEXT()
+        self.tranlucent_mat.sType = _STypes.MATERIAL_INFO_TRANSLUCENT_EXT
+        self.tranlucent_mat.pNext = None
+        self.tranlucent_mat.transmittanceTexture = str(self.transmittance_texture)
+        self.tranlucent_mat.refractiveIndex = self.refractive_index
+        self.tranlucent_mat.transmittanceColor = self.transmittance_color
+        self.tranlucent_mat.transmittanceMeasurementDistance = self.transmittance_measurement_distance
+        self.tranlucent_mat.thinWallThickness_hasvalue = 1 if self.thin_wall_thickness is not None else 0
+        self.tranlucent_mat.thinWallThickness_value = self.thin_wall_thickness or 0
+        self.tranlucent_mat.useDiffuseLayer = self.use_diffuse_layer
+        return super().as_struct(self.tranlucent_mat)
+
+
+class Portal(Material):
+    def __init__(
+        self,
+        # Base Material Parameters:
+        mat_hash: ctypes.c_uint64,
+        albedo_texture: str | Path = "",
+        normal_texture: str | Path = "",
+        tangent_texture: str | Path = "",
+        emissive_texture: str | Path = "",
+        emissive_intensity: float = 0,
+        emissive_color_constant: Float3D = Float3D(0, 0, 0),
+        sprite_sheet_row: int = 0,
+        sprite_sheet_col: int = 0,
+        sprite_sheet_fps: int = 0,
+        filter_mode: int = FilterModes.LINEAR,
+        wrap_mode_u: int = WrapModes.REPEAT,
+        wrap_mode_v: int = WrapModes.REPEAT,
+        # Portal Parameters:
+        ray_portal_index: int = 0,
+        rotation_speed: float = 0,
+    ):
+        # TODO: Add docstring.
+        # Base Material params.
+        self.mat_hash = mat_hash
+        self.albedo_texture = albedo_texture
+        self.normal_texture = normal_texture
+        self.tangent_texture = tangent_texture
+        self.emissive_texture = emissive_texture
+        self.emissive_intensity = emissive_intensity
+        self.emissive_color_constant = emissive_color_constant
+        self.sprite_sheet_row = sprite_sheet_row
+        self.sprite_sheet_col = sprite_sheet_col
+        self.sprite_sheet_fps = sprite_sheet_fps
+        self.filter_mode = filter_mode
+        self.wrap_mode_u = wrap_mode_u
+        self.wrap_mode_v = wrap_mode_v
+        # TranslucentPBR params.
+        self.ray_portal_index = ray_portal_index
+        self.rotation_speed = rotation_speed
+        self.portal_mat: _MaterialInfoPortalEXT | None = None
+
+    def as_struct(self, _: None = None) -> _MaterialInfo:
+        """Returns the internal structure form suitable for DLL interop via ctypes."""
+        self.portal_mat = _MaterialInfoPortalEXT()
+        self.portal_mat.sType = _STypes.MATERIAL_INFO_PORTAL_EXT
+        self.portal_mat.pNext = None
+        self.portal_mat.rayPortalIndex = self.ray_portal_index
+        self.portal_mat.rotationSpeed = self.rotation_speed
+        return super().as_struct(self.portal_mat)

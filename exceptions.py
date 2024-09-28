@@ -1,0 +1,6 @@
+class WrongSkinningDataCount(ValueError):
+    ...
+
+
+class MissmatchingSkinningDataArrays(ValueError):
+    ...
