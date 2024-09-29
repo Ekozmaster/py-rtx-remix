@@ -130,7 +130,7 @@ class SkinningData:
 
         Make sure to normalize your weights per vertex, or else a "budget" weight of 1.0 will be consumed in order of bones.
 
-        I.e: 4 bones: [0.3, 0.5, 200, 0.3] -> 0.3 for bone0, 0.5 for bone1, 0.3 for bone2, 0 for bone4.
+        I.e: 4 bones: [0.3, 0.5, 200, 0.3] -> 0.3 for bone0, 0.5 for bone1, 0.2 for bone2, 0 for bone3.
 
         :param bones_per_vertex: How many bones influence each vertex. 4 is a common value.
         :param blend_weights: Influence weight of each bone over each vertex. Make sure to normalizes them.
