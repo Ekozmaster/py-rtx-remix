@@ -126,6 +126,16 @@ class _PresentInfo(ctypes.Structure):
     ]
 
 
+class Rect2D(ctypes.Structure):
+    """ctypes direct mapping to remixapi_Rect2D struct"""
+    _fields_ = [
+        ("left", ctypes.c_int32),
+        ("top", ctypes.c_int32),
+        ("right", ctypes.c_int32),
+        ("bottom", ctypes.c_int32),
+    ]
+
+
 class Float2D(ctypes.Structure):
     """ctypes direct mapping to remixapi_Float2D struct"""
     _fields_ = [
@@ -140,6 +150,16 @@ class Float3D(ctypes.Structure):
         ("x", ctypes.c_float),
         ("y", ctypes.c_float),
         ("z", ctypes.c_float),
+    ]
+
+
+class Float4D(ctypes.Structure):
+    """ctypes direct mapping to remixapi_Float4D struct"""
+    _fields_ = [
+        ("x", ctypes.c_float),
+        ("y", ctypes.c_float),
+        ("z", ctypes.c_float),
+        ("w", ctypes.c_float),
     ]
 
 
@@ -211,11 +231,11 @@ class _MeshInfoSkinning(ctypes.Structure):
         ("bonesPerVertex", ctypes.c_uint32),  # I.e. 2 bones per vertex.
         # Each tuple of 'bonesPerVertex' float-s defines a vertex.
         # I.e. the size must be (bonesPerVertex * vertexCount).
-        ("blendWeights_values", ctypes.POINTER(ctypes.c_float)),  # [vert0-bone0, vert0-bone1, vert1-bone0, vert1-bone1, ...].
+        ("blendWeights_values", ctypes.POINTER(ctypes.c_float)),  # [vert0-bone0, vert1-bone0, vert0-bone1, vert1-bone1, ...].
         ("blendWeights_count", ctypes.c_uint32),  # len(blendWeights_values).
         # Each tuple of 'bonesPerVertex' uint32_t-s defines a vertex.
         # I.e. the size must be (bonesPerVertex * vertexCount).
-        ("blendIndices_values", ctypes.POINTER(ctypes.c_uint32)),  # Maps vertices to the bones array in _InstanceInfoBoneTransformsEXT.
+        ("blendIndices_values", ctypes.POINTER(ctypes.c_uint32)),  # Maps vertices to the bones array in _InstanceInfoBoneTransformsEXT. [vert0-bone0, vert0-bone1, vert1-bone0, vert1-bone1, ...]
         ("blendIndices_count", ctypes.c_uint32),  # len(blendIndices_values).
     ]
 
@@ -472,4 +492,18 @@ class _MaterialInfoPortalEXT(ctypes.Structure):
         ("pNext", ctypes.c_void_p),
         ("rayPortalIndex", ctypes.c_uint8),
         ("rotationSpeed", ctypes.c_float),
+    ]
+
+
+class _InstanceInfoBoneTransformsEXT(ctypes.Structure):
+    """
+    ctypes direct mapping to remixapi_InstanceInfoBoneTransformsEXT.
+
+    Defines an array of bone transforms in a skeleton.
+    """
+    _fields_ = [
+        ("sType", ctypes.c_int),
+        ("pNext", ctypes.c_void_p),
+        ("boneTransforms_values", ctypes.POINTER(_Transform)),
+        ("boneTransforms_count", ctypes.c_uint32),
     ]

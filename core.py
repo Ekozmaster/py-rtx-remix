@@ -74,6 +74,7 @@ class RTXRemixAPI:
     def create_mesh(self, mesh: Mesh) -> None:
         """
         Registers a new mesh inside Remix engine. If successful, that mesh can later be used to call draw_instance.
+        Make sure to call destroy_mesh when you're done with it.
 
         :param mesh: Instance of the Mesh class to create.
         """
@@ -88,6 +89,7 @@ class RTXRemixAPI:
     def create_light(self, light: Light) -> None:
         """
         Registers a new light inside Remix engine. If successful, that light can later be used to call draw_light_instance.
+        Make sure to call destroy_mesh when you're done with it.
 
         :param light: Instance of the Light class to create.
         """

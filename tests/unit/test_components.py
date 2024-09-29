@@ -4,10 +4,12 @@ from unittest import TestCase
 
 from api_data_types import Float3D, _STypes, _CameraInfoParameterizedEXT, Float2D, _MeshInfoSurfaceTriangles, \
     CategoryFlags, HASH, _LightInfoSphereEXT, FilterModes, WrapModes, _MaterialInfoOpaqueEXT, BlendTypes, \
-    AlphaTestTypes, _MaterialInfoOpaqueSubsurfaceEXT, _MaterialInfoTranslucentEXT, _MaterialInfoPortalEXT
+    AlphaTestTypes, _MaterialInfoOpaqueSubsurfaceEXT, _MaterialInfoTranslucentEXT, _MaterialInfoPortalEXT, _Transform, \
+    _InstanceInfoBoneTransformsEXT
 from components import Camera, CameraTypes, Vertex, MeshSurface, Mesh, Transform, MeshInstance, LightShapingInfo, Light, \
-    SphereLight, Material, OpacityPBR, OpacitySSSData, TranslucentPBR, Portal, SkinningData
-from exceptions import WrongSkinningDataCount, MissmatchingSkinningDataArrays
+    SphereLight, Material, OpacityPBR, OpacitySSSData, TranslucentPBR, Portal, SkinningData, Skeleton
+from exceptions import WrongSkinningDataCount, MissmatchingSkinningDataArrays, ResourceNotInitialized, \
+    SkinningDataOutOfSkeletonRange
 
 
 class TestCamera(TestCase):
@@ -245,7 +247,14 @@ class TestMeshSurface(TestCase):
         with self.assertRaises(WrongSkinningDataCount):
             MeshSurface(vertices=vertices, indices=[0, 1, 2], skinning_data=skinning_data)
 
-    # TODO: Test materials.
+    def test_assigning_non_initialized_material_should_raise_exception(self):
+        vertices = [
+            Vertex(position=Float3D(5, -5, 10), normal=Float3D(0, 0, -1), texcoord=Float2D(0.2, 0.1)).as_struct(),
+            Vertex(position=Float3D(0, 5, 10), normal=Float3D(0, 0, -1), texcoord=Float2D(0.2, 0.1), color=0x0).as_struct(),
+            Vertex(position=Float3D(-5, -5, 10), normal=Float3D(0, 0, -1), texcoord=Float2D(0.2, 0.1)).as_struct()
+        ]
+        with self.assertRaises(ResourceNotInitialized):
+            MeshSurface(vertices=vertices, indices=[0, 1, 2], material=OpacityPBR(mat_hash=HASH(0x123)))
 
 
 class TestMesh(TestCase):
@@ -397,11 +406,28 @@ class TestMeshInstance(TestCase):
         self.assertEqual(instance_struct.transform.matrix[2][2], 1)
         self.assertEqual(instance_struct.doubleSided, 1)
 
-    def test_custom_initialization(self):
+    def test_mesh_not_initialized_should_raise_exception(self):
         vertices = [
             Vertex(position=Float3D(5, -5, 10), normal=Float3D(0, 0, -1), texcoord=Float2D(0.2, 0.1)).as_struct(),
             Vertex(position=Float3D(0, 5, 10), normal=Float3D(0, 0, -1), texcoord=Float2D(0.2, 0.1),
                    color=0x0).as_struct(),
+            Vertex(position=Float3D(-5, -5, 10), normal=Float3D(0, 0, -1), texcoord=Float2D(0.2, 0.1)).as_struct()
+        ]
+        surface = MeshSurface(vertices=vertices, indices=[0, 1, 2])
+        mesh = Mesh(surfaces=[surface.as_struct()], mesh_hash=0x1234)
+        with self.assertRaises(ResourceNotInitialized):
+            MeshInstance(mesh=mesh)
+
+        mesh.handle = ctypes.c_void_p(12345)
+        mesh_instance = MeshInstance(mesh=mesh)
+        with self.assertRaises(ResourceNotInitialized):
+            mesh.handle = ctypes.c_void_p(0)
+            mesh_instance.as_struct()
+
+    def test_custom_initialization(self):
+        vertices = [
+            Vertex(position=Float3D(5, -5, 10), normal=Float3D(0, 0, -1), texcoord=Float2D(0.2, 0.1)).as_struct(),
+            Vertex(position=Float3D(0, 5, 10), normal=Float3D(0, 0, -1), texcoord=Float2D(0.2, 0.1), color=0x0).as_struct(),
             Vertex(position=Float3D(-5, -5, 10), normal=Float3D(0, 0, -1), texcoord=Float2D(0.2, 0.1)).as_struct()
         ]
         surface = MeshSurface(vertices=vertices, indices=[0, 1, 2])
@@ -439,6 +465,185 @@ class TestMeshInstance(TestCase):
         self.assertAlmostEqual(instance_struct.transform.matrix[2][3], 11, 5)
 
         self.assertEqual(instance_struct.doubleSided, 0)
+
+    def test_initialization_with_a_skeleton(self):
+        vertices = [
+            Vertex(position=Float3D(5, -5, 10), normal=Float3D(0, 0, -1), texcoord=Float2D(0.2, 0.1)).as_struct(),
+            Vertex(position=Float3D(0, 5, 10), normal=Float3D(0, 0, -1), texcoord=Float2D(0.2, 0.1), color=0x0).as_struct(),
+            Vertex(position=Float3D(-5, -5, 10), normal=Float3D(0, 0, -1), texcoord=Float2D(0.2, 0.1)).as_struct()
+        ]
+        surface = MeshSurface(vertices=vertices, indices=[0, 1, 2])
+        mesh = Mesh(surfaces=[surface.as_struct()], mesh_hash=0x1234)
+        mesh.handle = ctypes.c_void_p(12345)
+        transform = Transform(matrix=[
+            [0, 1, 2, 3],
+            [4, 5, 6, 7],
+            [8, 9, 10, 11],
+        ])
+
+        # Creating a skeleton with 2 bones.
+        transform1 = Transform(matrix=[
+            [0, 1, 2, 3],
+            [4, 5, 6, 7],
+            [8, 9, 10, 11],
+        ])
+        transform2 = Transform(matrix=[
+            [4, 3, 2, 1],
+            [10, 9, 8, 7],
+            [15, 14, 13, 12],
+        ])
+        transform_array = (_Transform * 2)()
+        transform_array[0] = transform1.as_struct()
+        transform_array[1] = transform2.as_struct()
+        skel = Skeleton(bone_count=2)
+        skel.set_bone_transforms(ctypes.byref(transform_array))
+
+        # Assembling the MeshInstance.
+        mesh_instance = MeshInstance(
+            mesh=mesh,
+            category_flags=CategoryFlags.DECAL_NO_OFFSET,
+            double_sided=0,
+            transform=transform,
+            skeleton=skel,
+        )
+        instance_struct = mesh_instance.as_struct()
+
+        self.assertEqual(instance_struct.sType, _STypes.INSTANCE_INFO)
+        self.assertNotEqual(instance_struct.pNext, None)
+        self.assertEqual(instance_struct.mesh, mesh.handle.value)
+        self.assertEqual(instance_struct.mesh, 12345)
+
+        skel_struct = ctypes.cast(instance_struct.pNext, ctypes.POINTER(_InstanceInfoBoneTransformsEXT))[0]
+        self.assertEqual(skel_struct.sType, _STypes.INSTANCE_INFO_BONE_TRANSFORMS_EXT)
+        self.assertEqual(skel_struct.pNext, None)
+
+        transform_struct1 = skel_struct.boneTransforms_values[0]
+        self.assertAlmostEqual(transform_struct1.matrix[0][0], 0, 5)
+        self.assertAlmostEqual(transform_struct1.matrix[0][1], 1, 5)
+        self.assertAlmostEqual(transform_struct1.matrix[0][2], 2, 5)
+        self.assertAlmostEqual(transform_struct1.matrix[0][3], 3, 5)
+
+        self.assertAlmostEqual(transform_struct1.matrix[1][0], 4, 5)
+        self.assertAlmostEqual(transform_struct1.matrix[1][1], 5, 5)
+        self.assertAlmostEqual(transform_struct1.matrix[1][2], 6, 5)
+        self.assertAlmostEqual(transform_struct1.matrix[1][3], 7, 5)
+
+        self.assertAlmostEqual(transform_struct1.matrix[2][0], 8, 5)
+        self.assertAlmostEqual(transform_struct1.matrix[2][1], 9, 5)
+        self.assertAlmostEqual(transform_struct1.matrix[2][2], 10, 5)
+        self.assertAlmostEqual(transform_struct1.matrix[2][3], 11, 5)
+
+        transform_struct2 = skel_struct.boneTransforms_values[1]
+        self.assertAlmostEqual(transform_struct2.matrix[0][0], 4, 5)
+        self.assertAlmostEqual(transform_struct2.matrix[0][1], 3, 5)
+        self.assertAlmostEqual(transform_struct2.matrix[0][2], 2, 5)
+        self.assertAlmostEqual(transform_struct2.matrix[0][3], 1, 5)
+
+        self.assertAlmostEqual(transform_struct2.matrix[1][0], 10, 5)
+        self.assertAlmostEqual(transform_struct2.matrix[1][1], 9, 5)
+        self.assertAlmostEqual(transform_struct2.matrix[1][2], 8, 5)
+        self.assertAlmostEqual(transform_struct2.matrix[1][3], 7, 5)
+
+        self.assertAlmostEqual(transform_struct2.matrix[2][0], 15, 5)
+        self.assertAlmostEqual(transform_struct2.matrix[2][1], 14, 5)
+        self.assertAlmostEqual(transform_struct2.matrix[2][2], 13, 5)
+        self.assertAlmostEqual(transform_struct2.matrix[2][3], 12, 5)
+
+    def test_initialization_skinning_data_and_a_skeleton(self):
+        vertices = [
+            Vertex(position=Float3D(5, -5, 10), normal=Float3D(0, 0, -1), texcoord=Float2D(0.2, 0.1)).as_struct(),
+            Vertex(position=Float3D(0, 5, 10), normal=Float3D(0, 0, -1), texcoord=Float2D(0.2, 0.1), color=0x0).as_struct(),
+            Vertex(position=Float3D(-5, -5, 10), normal=Float3D(0, 0, -1), texcoord=Float2D(0.2, 0.1)).as_struct()
+        ]
+        skinning_data = SkinningData(
+            bones_per_vertex=2,
+            blend_weights=[0.1, 0.9, 0.3, 0.7, 0.5, 0.5],  # 3 vertices, 2 bones_per_vertex
+            blend_indices=[0, 1, 0, 1, 0, 1],  # 3 vertices, 2 bones_per_vertex
+        )
+        surface = MeshSurface(vertices=vertices, indices=[0, 1, 2], skinning_data=skinning_data)
+        mesh = Mesh(surfaces=[surface.as_struct()], mesh_hash=0x1234)
+        mesh.handle = ctypes.c_void_p(12345)
+        transform = Transform(matrix=[
+            [0, 1, 2, 3],
+            [4, 5, 6, 7],
+            [8, 9, 10, 11],
+        ])
+
+        # Creating a skeleton with 2 bones.
+        transform1 = Transform(matrix=[
+            [0, 1, 2, 3],
+            [4, 5, 6, 7],
+            [8, 9, 10, 11],
+        ])
+        transform2 = Transform(matrix=[
+            [4, 3, 2, 1],
+            [10, 9, 8, 7],
+            [15, 14, 13, 12],
+        ])
+        transform_array = (_Transform * 2)()
+        transform_array[0] = transform1.as_struct()
+        transform_array[1] = transform2.as_struct()
+        skel = Skeleton(bone_count=2)
+        skel.set_bone_transforms(ctypes.byref(transform_array))
+
+        # Assembling the MeshInstance.
+        mesh_instance = MeshInstance(
+            mesh=mesh,
+            category_flags=CategoryFlags.DECAL_NO_OFFSET,
+            double_sided=0,
+            transform=transform,
+            skeleton=skel,
+        )
+        instance_struct = mesh_instance.as_struct()
+        self.assertTrue(instance_struct)  # Asserting everything went fine with no exceptions.
+
+    def test_initialization_skinning_data_indices_out_of_skeleton_bones_range_should_raise(self):
+        vertices = [
+            Vertex(position=Float3D(5, -5, 10), normal=Float3D(0, 0, -1), texcoord=Float2D(0.2, 0.1)).as_struct(),
+            Vertex(position=Float3D(0, 5, 10), normal=Float3D(0, 0, -1), texcoord=Float2D(0.2, 0.1), color=0x0).as_struct(),
+            Vertex(position=Float3D(-5, -5, 10), normal=Float3D(0, 0, -1), texcoord=Float2D(0.2, 0.1)).as_struct()
+        ]
+        skinning_data = SkinningData(
+            bones_per_vertex=2,
+            blend_weights=[0.1, 0.9, 0.3, 0.7, 0.5, 0.5],  # 3 vertices, 2 bones_per_vertex
+            blend_indices=[0, 1, 2, 1, 0, 1],  # 3 vertices, 2 bones_per_vertex
+        )
+        surface = MeshSurface(vertices=vertices, indices=[0, 1, 2], skinning_data=skinning_data)
+        mesh = Mesh(surfaces=[surface.as_struct()], mesh_hash=0x1234)
+        mesh.handle = ctypes.c_void_p(12345)
+        transform = Transform(matrix=[
+            [0, 1, 2, 3],
+            [4, 5, 6, 7],
+            [8, 9, 10, 11],
+        ])
+
+        # Creating a skeleton with 2 bones.
+        transform1 = Transform(matrix=[
+            [0, 1, 2, 3],
+            [4, 5, 6, 7],
+            [8, 9, 10, 11],
+        ])
+        transform2 = Transform(matrix=[
+            [4, 3, 2, 1],
+            [10, 9, 8, 7],
+            [15, 14, 13, 12],
+        ])
+        transform_array = (_Transform * 2)()
+        transform_array[0] = transform1.as_struct()
+        transform_array[1] = transform2.as_struct()
+        skel = Skeleton(bone_count=2)
+        skel.set_bone_transforms(ctypes.byref(transform_array))
+
+        # Assembling the MeshInstance.
+        mesh_instance = MeshInstance(
+            mesh=mesh,
+            category_flags=CategoryFlags.DECAL_NO_OFFSET,
+            double_sided=0,
+            transform=transform,
+            skeleton=skel,
+        )
+        with self.assertRaises(SkinningDataOutOfSkeletonRange):
+            mesh_instance.check_for_errors()
 
 
 class TestLightShapingInfo(TestCase):
@@ -552,6 +757,7 @@ class TestMaterial(TestCase):
 class TestOpacityPBR(TestCase):
     def test_default_initialization(self):
         mat = OpacityPBR(mat_hash=ctypes.c_uint64(0x3))
+        self.assertEqual(mat.handle.value, None)
         mat_struct = mat.as_struct()
 
         self.assertEqual(mat_struct.sType, _STypes.MATERIAL_INFO)
@@ -627,6 +833,7 @@ class TestOpacityPBR(TestCase):
             alpha_test_type=AlphaTestTypes.GREATER_OR_EQUAL,
             alpha_reference_value=255,
         )
+        self.assertEqual(mat.handle.value, None)
 
         mat_struct = mat.as_struct()
 
@@ -681,6 +888,7 @@ class TestOpacityPBR(TestCase):
             volumetric_anisotropy=0.4,
         )
         mat = OpacityPBR(mat_hash=ctypes.c_uint64(0x3), subsurface_data=sss_data)
+        self.assertEqual(mat.handle.value, None)
         mat_struct = mat.as_struct()
         opacity_struct = ctypes.cast(mat_struct.pNext, ctypes.POINTER(_MaterialInfoOpaqueEXT))[0]
         sss_struct = ctypes.cast(opacity_struct.pNext, ctypes.POINTER(_MaterialInfoOpaqueSubsurfaceEXT))[0]
@@ -702,8 +910,8 @@ class TestOpacityPBR(TestCase):
 
 class TestOpacitySSSData(TestCase):
     def test_default_initialization(self):
-        mat = OpacitySSSData()
-        sss_struct = mat.as_struct()
+        sss_data = OpacitySSSData()
+        sss_struct = sss_data.as_struct()
 
         self.assertEqual(sss_struct.sType, _STypes.MATERIAL_INFO_OPAQUE_SUBSURFACE_EXT)
         self.assertEqual(sss_struct.pNext, None)
@@ -720,7 +928,7 @@ class TestOpacitySSSData(TestCase):
         self.assertAlmostEqual(sss_struct.subsurfaceVolumetricAnisotropy, 0, 4)
 
     def test_custom_initialization(self):
-        mat = OpacitySSSData(
+        sss_data = OpacitySSSData(
             transmittance_texture=Path("transmittance.dds"),
             thickness_texture=Path("thickness.dds"),
             single_scattering_albedo_texture=Path("ss_albedo.dds"),
@@ -729,7 +937,7 @@ class TestOpacitySSSData(TestCase):
             single_scattering_albedo=Float3D(0.87, 0.3, 0.8),
             volumetric_anisotropy=0.4,
         )
-        sss_struct = mat.as_struct()
+        sss_struct = sss_data.as_struct()
 
         self.assertEqual(sss_struct.sType, _STypes.MATERIAL_INFO_OPAQUE_SUBSURFACE_EXT)
         self.assertEqual(sss_struct.pNext, None)
@@ -749,6 +957,7 @@ class TestOpacitySSSData(TestCase):
 class TestTranslucentPBR(TestCase):
     def test_default_initialization(self):
         mat = TranslucentPBR(mat_hash=ctypes.c_uint64(0x3))
+        self.assertEqual(mat.handle.value, None)
         mat_struct = mat.as_struct()
 
         self.assertEqual(mat_struct.sType, _STypes.MATERIAL_INFO)
@@ -804,6 +1013,7 @@ class TestTranslucentPBR(TestCase):
             thin_wall_thickness=3.1415,
             use_diffuse_layer=True,
         )
+        self.assertEqual(mat.handle.value, None)
 
         mat_struct = mat.as_struct()
 
@@ -841,6 +1051,7 @@ class TestTranslucentPBR(TestCase):
 class TestPortal(TestCase):
     def test_default_initialization(self):
         mat = Portal(mat_hash=ctypes.c_uint64(0x3))
+        self.assertEqual(mat.handle.value, None)
         mat_struct = mat.as_struct()
 
         self.assertEqual(mat_struct.sType, _STypes.MATERIAL_INFO)
@@ -885,6 +1096,7 @@ class TestPortal(TestCase):
             ray_portal_index=17,
             rotation_speed=1.42,
         )
+        self.assertEqual(mat.handle.value, None)
 
         mat_struct = mat.as_struct()
 
@@ -912,4 +1124,56 @@ class TestPortal(TestCase):
         self.assertAlmostEqual(portal_struct.rotationSpeed, 1.42, 4)
 
 
-# TODO: Add tests for Assets destructors and Destroy calls.
+class TestSkeleton(TestCase):
+    def test_initialization_and_set_bone_transforms(self):
+        transform1 = Transform(matrix=[
+            [0, 1, 2, 3],
+            [4, 5, 6, 7],
+            [8, 9, 10, 11],
+        ])
+        transform2 = Transform(matrix=[
+            [4, 3, 2, 1],
+            [10, 9, 8, 7],
+            [15, 14, 13, 12],
+        ])
+        transform_array = (_Transform * 2)()
+        transform_array[0] = transform1.as_struct()
+        transform_array[1] = transform2.as_struct()
+        skel = Skeleton(bone_count=2)
+        skel.set_bone_transforms(ctypes.byref(transform_array))
+
+        skel_struct = skel.as_struct()
+        self.assertEqual(skel_struct.sType, _STypes.INSTANCE_INFO_BONE_TRANSFORMS_EXT)
+        self.assertEqual(skel_struct.pNext, None)
+
+        transform_struct1 = skel_struct.boneTransforms_values[0]
+        self.assertAlmostEqual(transform_struct1.matrix[0][0], 0, 5)
+        self.assertAlmostEqual(transform_struct1.matrix[0][1], 1, 5)
+        self.assertAlmostEqual(transform_struct1.matrix[0][2], 2, 5)
+        self.assertAlmostEqual(transform_struct1.matrix[0][3], 3, 5)
+
+        self.assertAlmostEqual(transform_struct1.matrix[1][0], 4, 5)
+        self.assertAlmostEqual(transform_struct1.matrix[1][1], 5, 5)
+        self.assertAlmostEqual(transform_struct1.matrix[1][2], 6, 5)
+        self.assertAlmostEqual(transform_struct1.matrix[1][3], 7, 5)
+
+        self.assertAlmostEqual(transform_struct1.matrix[2][0], 8, 5)
+        self.assertAlmostEqual(transform_struct1.matrix[2][1], 9, 5)
+        self.assertAlmostEqual(transform_struct1.matrix[2][2], 10, 5)
+        self.assertAlmostEqual(transform_struct1.matrix[2][3], 11, 5)
+
+        transform_struct2 = skel_struct.boneTransforms_values[1]
+        self.assertAlmostEqual(transform_struct2.matrix[0][0], 4, 5)
+        self.assertAlmostEqual(transform_struct2.matrix[0][1], 3, 5)
+        self.assertAlmostEqual(transform_struct2.matrix[0][2], 2, 5)
+        self.assertAlmostEqual(transform_struct2.matrix[0][3], 1, 5)
+
+        self.assertAlmostEqual(transform_struct2.matrix[1][0], 10, 5)
+        self.assertAlmostEqual(transform_struct2.matrix[1][1], 9, 5)
+        self.assertAlmostEqual(transform_struct2.matrix[1][2], 8, 5)
+        self.assertAlmostEqual(transform_struct2.matrix[1][3], 7, 5)
+
+        self.assertAlmostEqual(transform_struct2.matrix[2][0], 15, 5)
+        self.assertAlmostEqual(transform_struct2.matrix[2][1], 14, 5)
+        self.assertAlmostEqual(transform_struct2.matrix[2][2], 13, 5)
+        self.assertAlmostEqual(transform_struct2.matrix[2][3], 12, 5)
