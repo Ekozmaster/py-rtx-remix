@@ -5,11 +5,13 @@ from unittest import TestCase
 from api_data_types import Float3D, _STypes, _CameraInfoParameterizedEXT, Float2D, _MeshInfoSurfaceTriangles, \
     CategoryFlags, HASH, _LightInfoSphereEXT, FilterModes, WrapModes, _MaterialInfoOpaqueEXT, BlendTypes, \
     AlphaTestTypes, _MaterialInfoOpaqueSubsurfaceEXT, _MaterialInfoTranslucentEXT, _MaterialInfoPortalEXT, _Transform, \
-    _InstanceInfoBoneTransformsEXT
+    _InstanceInfoBoneTransformsEXT, _LightInfoRectEXT, _LightInfoDiskEXT, _LightInfoCylinderEXT, _LightInfoDistantEXT, \
+    _LightInfoDomeEXT
 from components import Camera, CameraTypes, Vertex, MeshSurface, Mesh, Transform, MeshInstance, LightShapingInfo, Light, \
-    SphereLight, Material, OpacityPBR, OpacitySSSData, TranslucentPBR, Portal, SkinningData, Skeleton
-from exceptions import WrongSkinningDataCount, MissmatchingSkinningDataArrays, ResourceNotInitialized, \
-    SkinningDataOutOfSkeletonRange
+    SphereLight, Material, OpacityPBR, OpacitySSSData, TranslucentPBR, Portal, SkinningData, Skeleton, RectLight, \
+    DiskLight, CylinderLight, DistantLight, DomeLight
+from exceptions import WrongSkinningDataCount, ResourceNotInitialized, SkinningDataOutOfSkeletonRange, \
+    InvalidSkinningData
 
 
 class TestCamera(TestCase):
@@ -124,23 +126,49 @@ class TestSkinningData(TestCase):
         self.assertEqual(skinning_struct.blendIndices_count, 4)
 
     def test_blending_weights_not_multiple_of_bones_per_vertex_should_raise_exception(self):
-        with self.assertRaises(MissmatchingSkinningDataArrays):
+        with self.assertRaises(InvalidSkinningData):
             SkinningData(
                 bones_per_vertex=2,
                 blend_weights=[0.1, 0.9, 0.3, 0.7, 0.5],  # 2 vertices, 2 bones_per_vertex
                 blend_indices=[3, 7, 4, 8],  # 2 vertices, 2 bones_per_vertex
             )
 
+    def test_empty_blending_weights_should_raise_exception(self):
+        skinning_data = SkinningData(
+            bones_per_vertex=2,
+            blend_weights=[0.1, 0.9, 0.3, 0.7],  # 2 vertices, 2 bones_per_vertex
+            blend_indices=[3, 7, 4, 8],  # 2 vertices, 2 bones_per_vertex
+        )
+        with self.assertRaises(InvalidSkinningData):
+            skinning_data.blend_weights = []
+            skinning_data.check_for_errors()
+
+        errors = skinning_data.check_for_errors(should_raise=False)
+        self.assertEqual(len(errors), 1)
+
     def test_blending_indices_not_multiple_of_bones_per_vertex_should_raise_exception(self):
-        with self.assertRaises(MissmatchingSkinningDataArrays):
+        with self.assertRaises(InvalidSkinningData):
             SkinningData(
                 bones_per_vertex=2,
                 blend_weights=[0.1, 0.9, 0.3, 0.7],  # 2 vertices, 2 bones_per_vertex
                 blend_indices=[3, 7, 4, 8, 9],  # 2 vertices, 2 bones_per_vertex
             )
 
+    def test_empty_blending_indices_should_raise_exception(self):
+        skinning_data = SkinningData(
+            bones_per_vertex=2,
+            blend_weights=[0.1, 0.9, 0.3, 0.7],  # 2 vertices, 2 bones_per_vertex
+            blend_indices=[3, 7, 4, 8],  # 2 vertices, 2 bones_per_vertex
+        )
+        with self.assertRaises(InvalidSkinningData):
+            skinning_data.blend_indices = []
+            skinning_data.check_for_errors()
+
+        errors = skinning_data.check_for_errors(should_raise=False)
+        self.assertEqual(len(errors), 1)
+
     def test_blending_indices_count_missmatching_blend_weights_count_should_raise_exception(self):
-        with self.assertRaises(MissmatchingSkinningDataArrays):
+        with self.assertRaises(InvalidSkinningData):
             SkinningData(
                 bones_per_vertex=2,
                 blend_weights=[0.1, 0.9, 0.3, 0.7, 0.9, 0.1],  # 2 vertices, 2 bones_per_vertex
@@ -688,9 +716,9 @@ class TestSphereLight(TestCase):
     def test_custom_initialization(self):
         sphere_light = SphereLight(
             light_hash=HASH(0x5),
+            radiance=Float3D(0.2, 700, 256.7),
             position=Float3D(5, 4, 3),
             radius=0.5,
-            radiance=Float3D(0.2, 700, 256.7)
         )
         light_struct = sphere_light.as_struct()
 
@@ -718,9 +746,9 @@ class TestSphereLight(TestCase):
 
         sphere_light = SphereLight(
             light_hash=HASH(0x5),
+            radiance=Float3D(0.2, 700, 256.7),
             position=Float3D(5, 4, 3),
             radius=0.5,
-            radiance=Float3D(0.2, 700, 256.7),
             shaping_value=shaping_value
         )
         light_struct = sphere_light.as_struct()
@@ -746,6 +774,416 @@ class TestSphereLight(TestCase):
         self.assertAlmostEqual(sphere_light_struct.shaping_value.coneAngleDegrees, 35.0, 4)
         self.assertAlmostEqual(sphere_light_struct.shaping_value.coneSoftness, 3, 4)
         self.assertAlmostEqual(sphere_light_struct.shaping_value.focusExponent, 4, 4)
+
+
+class TestRectLight(TestCase):
+    def test_default_initialization(self):
+        rect_light = RectLight(HASH(0x5))
+        light_struct = rect_light.as_struct()
+
+        self.assertEqual(light_struct.sType, _STypes.LIGHT_INFO)
+        self.assertEqual(light_struct.hash, 0x5)
+        self.assertAlmostEqual(light_struct.radiance.x, 1.0, 4)
+        self.assertAlmostEqual(light_struct.radiance.y, 1.0, 4)
+        self.assertAlmostEqual(light_struct.radiance.z, 1.0, 4)
+
+        rect_light_struct = ctypes.cast(light_struct.pNext, ctypes.POINTER(_LightInfoRectEXT))[0]
+        self.assertEqual(rect_light_struct.sType, _STypes.LIGHT_INFO_RECT_EXT)
+        self.assertEqual(rect_light_struct.pNext, None)
+        self.assertAlmostEqual(rect_light_struct.position.x, 0, 4)
+        self.assertAlmostEqual(rect_light_struct.position.y, 0, 4)
+        self.assertAlmostEqual(rect_light_struct.position.z, 0, 4)
+        self.assertAlmostEqual(rect_light_struct.xAxis.x, 1.0, 5)
+        self.assertAlmostEqual(rect_light_struct.xAxis.y, 0.0, 5)
+        self.assertAlmostEqual(rect_light_struct.xAxis.z, 0.0, 5)
+        self.assertAlmostEqual(rect_light_struct.xSize, 1.0, 5)
+        self.assertAlmostEqual(rect_light_struct.yAxis.x, 0.0, 5)
+        self.assertAlmostEqual(rect_light_struct.yAxis.y, 1.0, 5)
+        self.assertAlmostEqual(rect_light_struct.yAxis.z, 0.0, 5)
+        self.assertAlmostEqual(rect_light_struct.ySize, 1.0, 5)
+        self.assertAlmostEqual(rect_light_struct.direction.x, 0.0, 5)
+        self.assertAlmostEqual(rect_light_struct.direction.y, 0.0, 5)
+        self.assertAlmostEqual(rect_light_struct.direction.z, 1.0, 5)
+        self.assertEqual(rect_light_struct.shaping_hasvalue, 0)
+
+    def test_custom_initialization(self):
+        rect_light = RectLight(
+            light_hash=HASH(0x5),
+            radiance=Float3D(0.2, 700, 256.7),
+            position=Float3D(5, 4, 3),
+            x_axis=Float3D(0.7072, 0.7072, 0),
+            x_size=3.5,
+            y_axis=Float3D(-0.7072, 0.7072, 0),
+            y_size=4.5,
+            direction=Float3D(0.54, 0.87, 0.12),
+        )
+        light_struct = rect_light.as_struct()
+
+        self.assertEqual(light_struct.sType, _STypes.LIGHT_INFO)
+        self.assertEqual(light_struct.hash, 0x5)
+        self.assertAlmostEqual(light_struct.radiance.x, 0.2, 4)
+        self.assertAlmostEqual(light_struct.radiance.y, 700, 4)
+        self.assertAlmostEqual(light_struct.radiance.z, 256.7, 4)
+
+        rect_light_struct = ctypes.cast(light_struct.pNext, ctypes.POINTER(_LightInfoRectEXT))[0]
+        self.assertEqual(rect_light_struct.sType, _STypes.LIGHT_INFO_RECT_EXT)
+        self.assertEqual(rect_light_struct.pNext, None)
+        self.assertAlmostEqual(rect_light_struct.position.x, 5, 4)
+        self.assertAlmostEqual(rect_light_struct.position.y, 4, 4)
+        self.assertAlmostEqual(rect_light_struct.position.z, 3, 4)
+        self.assertAlmostEqual(rect_light_struct.xAxis.x, 0.7072, 5)
+        self.assertAlmostEqual(rect_light_struct.xAxis.y, 0.7072, 5)
+        self.assertAlmostEqual(rect_light_struct.xAxis.z, 0.0, 5)
+        self.assertAlmostEqual(rect_light_struct.xSize, 3.5, 5)
+        self.assertAlmostEqual(rect_light_struct.yAxis.x, -0.7072, 5)
+        self.assertAlmostEqual(rect_light_struct.yAxis.y, 0.7072, 5)
+        self.assertAlmostEqual(rect_light_struct.yAxis.z, 0.0, 5)
+        self.assertAlmostEqual(rect_light_struct.ySize, 4.5, 5)
+        self.assertAlmostEqual(rect_light_struct.direction.x, 0.54, 5)
+        self.assertAlmostEqual(rect_light_struct.direction.y, 0.87, 5)
+        self.assertAlmostEqual(rect_light_struct.direction.z, 0.12, 5)
+        self.assertEqual(rect_light_struct.shaping_hasvalue, 0)
+
+    def test_initialization_with_shaping_value(self):
+        shaping_value = LightShapingInfo()
+        shaping_value.direction = Float3D(3, -1, 7)
+        shaping_value.cone_angle = 35.0
+        shaping_value.cone_softness = 3
+        shaping_value.focus_exponent = 4
+
+        rect_light = RectLight(
+            light_hash=HASH(0x5),
+            radiance=Float3D(0.2, 700, 256.7),
+            position=Float3D(5, 4, 3),
+            x_axis=Float3D(0.7072, 0.7072, 0),
+            x_size=3.5,
+            y_axis=Float3D(-0.7072, 0.7072, 0),
+            y_size=4.5,
+            direction=Float3D(0.54, 0.87, 0.12),
+            shaping_value=shaping_value,
+        )
+        light_struct = rect_light.as_struct()
+
+        self.assertEqual(light_struct.sType, _STypes.LIGHT_INFO)
+        self.assertEqual(light_struct.hash, 0x5)
+        self.assertAlmostEqual(light_struct.radiance.x, 0.2, 4)
+        self.assertAlmostEqual(light_struct.radiance.y, 700, 4)
+        self.assertAlmostEqual(light_struct.radiance.z, 256.7, 4)
+
+        rect_light_struct = ctypes.cast(light_struct.pNext, ctypes.POINTER(_LightInfoRectEXT))[0]
+        self.assertEqual(rect_light_struct.sType, _STypes.LIGHT_INFO_RECT_EXT)
+        self.assertEqual(rect_light_struct.pNext, None)
+        self.assertAlmostEqual(rect_light_struct.position.x, 5, 4)
+        self.assertAlmostEqual(rect_light_struct.position.y, 4, 4)
+        self.assertAlmostEqual(rect_light_struct.position.z, 3, 4)
+        self.assertAlmostEqual(rect_light_struct.xAxis.x, 0.7072, 5)
+        self.assertAlmostEqual(rect_light_struct.xAxis.y, 0.7072, 5)
+        self.assertAlmostEqual(rect_light_struct.xAxis.z, 0.0, 5)
+        self.assertAlmostEqual(rect_light_struct.xSize, 3.5, 5)
+        self.assertAlmostEqual(rect_light_struct.yAxis.x, -0.7072, 5)
+        self.assertAlmostEqual(rect_light_struct.yAxis.y, 0.7072, 5)
+        self.assertAlmostEqual(rect_light_struct.yAxis.z, 0.0, 5)
+        self.assertAlmostEqual(rect_light_struct.ySize, 4.5, 5)
+        self.assertAlmostEqual(rect_light_struct.direction.x, 0.54, 5)
+        self.assertAlmostEqual(rect_light_struct.direction.y, 0.87, 5)
+        self.assertAlmostEqual(rect_light_struct.direction.z, 0.12, 5)
+        self.assertEqual(rect_light_struct.shaping_hasvalue, 1)
+
+        self.assertAlmostEqual(rect_light_struct.shaping_value.direction.x, 3, 4)
+        self.assertAlmostEqual(rect_light_struct.shaping_value.direction.y, -1, 4)
+        self.assertAlmostEqual(rect_light_struct.shaping_value.direction.z, 7, 4)
+        self.assertAlmostEqual(rect_light_struct.shaping_value.coneAngleDegrees, 35.0, 4)
+        self.assertAlmostEqual(rect_light_struct.shaping_value.coneSoftness, 3, 4)
+        self.assertAlmostEqual(rect_light_struct.shaping_value.focusExponent, 4, 4)
+
+
+class TestDiskLight(TestCase):
+    def test_default_initialization(self):
+        disk_light = DiskLight(HASH(0x5))
+        light_struct = disk_light.as_struct()
+
+        self.assertEqual(light_struct.sType, _STypes.LIGHT_INFO)
+        self.assertEqual(light_struct.hash, 0x5)
+        self.assertAlmostEqual(light_struct.radiance.x, 1.0, 4)
+        self.assertAlmostEqual(light_struct.radiance.y, 1.0, 4)
+        self.assertAlmostEqual(light_struct.radiance.z, 1.0, 4)
+
+        disk_light_struct = ctypes.cast(light_struct.pNext, ctypes.POINTER(_LightInfoDiskEXT))[0]
+        self.assertEqual(disk_light_struct.sType, _STypes.LIGHT_INFO_DISK_EXT)
+        self.assertEqual(disk_light_struct.pNext, None)
+        self.assertAlmostEqual(disk_light_struct.position.x, 0, 4)
+        self.assertAlmostEqual(disk_light_struct.position.y, 0, 4)
+        self.assertAlmostEqual(disk_light_struct.position.z, 0, 4)
+        self.assertAlmostEqual(disk_light_struct.xAxis.x, 1.0, 5)
+        self.assertAlmostEqual(disk_light_struct.xAxis.y, 0.0, 5)
+        self.assertAlmostEqual(disk_light_struct.xAxis.z, 0.0, 5)
+        self.assertAlmostEqual(disk_light_struct.xRadius, 1.0, 5)
+        self.assertAlmostEqual(disk_light_struct.yAxis.x, 0.0, 5)
+        self.assertAlmostEqual(disk_light_struct.yAxis.y, 1.0, 5)
+        self.assertAlmostEqual(disk_light_struct.yAxis.z, 0.0, 5)
+        self.assertAlmostEqual(disk_light_struct.yRadius, 1.0, 5)
+        self.assertAlmostEqual(disk_light_struct.direction.x, 0.0, 5)
+        self.assertAlmostEqual(disk_light_struct.direction.y, 0.0, 5)
+        self.assertAlmostEqual(disk_light_struct.direction.z, 1.0, 5)
+        self.assertEqual(disk_light_struct.shaping_hasvalue, 0)
+
+    def test_custom_initialization(self):
+        disk_light = DiskLight(
+            light_hash=HASH(0x5),
+            radiance=Float3D(0.2, 700, 256.7),
+            position=Float3D(5, 4, 3),
+            x_axis=Float3D(0.7072, 0.7072, 0),
+            x_size=3.5,
+            y_axis=Float3D(-0.7072, 0.7072, 0),
+            y_size=4.5,
+            direction=Float3D(0.54, 0.87, 0.12),
+        )
+        light_struct = disk_light.as_struct()
+
+        self.assertEqual(light_struct.sType, _STypes.LIGHT_INFO)
+        self.assertEqual(light_struct.hash, 0x5)
+        self.assertAlmostEqual(light_struct.radiance.x, 0.2, 4)
+        self.assertAlmostEqual(light_struct.radiance.y, 700, 4)
+        self.assertAlmostEqual(light_struct.radiance.z, 256.7, 4)
+
+        disk_light_struct = ctypes.cast(light_struct.pNext, ctypes.POINTER(_LightInfoDiskEXT))[0]
+        self.assertEqual(disk_light_struct.sType, _STypes.LIGHT_INFO_DISK_EXT)
+        self.assertEqual(disk_light_struct.pNext, None)
+        self.assertAlmostEqual(disk_light_struct.position.x, 5, 4)
+        self.assertAlmostEqual(disk_light_struct.position.y, 4, 4)
+        self.assertAlmostEqual(disk_light_struct.position.z, 3, 4)
+        self.assertAlmostEqual(disk_light_struct.xAxis.x, 0.7072, 5)
+        self.assertAlmostEqual(disk_light_struct.xAxis.y, 0.7072, 5)
+        self.assertAlmostEqual(disk_light_struct.xAxis.z, 0.0, 5)
+        self.assertAlmostEqual(disk_light_struct.xRadius, 3.5, 5)
+        self.assertAlmostEqual(disk_light_struct.yAxis.x, -0.7072, 5)
+        self.assertAlmostEqual(disk_light_struct.yAxis.y, 0.7072, 5)
+        self.assertAlmostEqual(disk_light_struct.yAxis.z, 0.0, 5)
+        self.assertAlmostEqual(disk_light_struct.yRadius, 4.5, 5)
+        self.assertAlmostEqual(disk_light_struct.direction.x, 0.54, 5)
+        self.assertAlmostEqual(disk_light_struct.direction.y, 0.87, 5)
+        self.assertAlmostEqual(disk_light_struct.direction.z, 0.12, 5)
+        self.assertEqual(disk_light_struct.shaping_hasvalue, 0)
+
+    def test_initialization_with_shaping_value(self):
+        shaping_value = LightShapingInfo()
+        shaping_value.direction = Float3D(3, -1, 7)
+        shaping_value.cone_angle = 35.0
+        shaping_value.cone_softness = 3
+        shaping_value.focus_exponent = 4
+
+        disk_light = DiskLight(
+            light_hash=HASH(0x5),
+            radiance=Float3D(0.2, 700, 256.7),
+            position=Float3D(5, 4, 3),
+            x_axis=Float3D(0.7072, 0.7072, 0),
+            x_size=3.5,
+            y_axis=Float3D(-0.7072, 0.7072, 0),
+            y_size=4.5,
+            direction=Float3D(0.54, 0.87, 0.12),
+            shaping_value=shaping_value,
+        )
+        light_struct = disk_light.as_struct()
+
+        self.assertEqual(light_struct.sType, _STypes.LIGHT_INFO)
+        self.assertEqual(light_struct.hash, 0x5)
+        self.assertAlmostEqual(light_struct.radiance.x, 0.2, 4)
+        self.assertAlmostEqual(light_struct.radiance.y, 700, 4)
+        self.assertAlmostEqual(light_struct.radiance.z, 256.7, 4)
+
+        disk_light_struct = ctypes.cast(light_struct.pNext, ctypes.POINTER(_LightInfoDiskEXT))[0]
+        self.assertEqual(disk_light_struct.sType, _STypes.LIGHT_INFO_DISK_EXT)
+        self.assertEqual(disk_light_struct.pNext, None)
+        self.assertAlmostEqual(disk_light_struct.position.x, 5, 4)
+        self.assertAlmostEqual(disk_light_struct.position.y, 4, 4)
+        self.assertAlmostEqual(disk_light_struct.position.z, 3, 4)
+        self.assertAlmostEqual(disk_light_struct.xAxis.x, 0.7072, 5)
+        self.assertAlmostEqual(disk_light_struct.xAxis.y, 0.7072, 5)
+        self.assertAlmostEqual(disk_light_struct.xAxis.z, 0.0, 5)
+        self.assertAlmostEqual(disk_light_struct.xRadius, 3.5, 5)
+        self.assertAlmostEqual(disk_light_struct.yAxis.x, -0.7072, 5)
+        self.assertAlmostEqual(disk_light_struct.yAxis.y, 0.7072, 5)
+        self.assertAlmostEqual(disk_light_struct.yAxis.z, 0.0, 5)
+        self.assertAlmostEqual(disk_light_struct.yRadius, 4.5, 5)
+        self.assertAlmostEqual(disk_light_struct.direction.x, 0.54, 5)
+        self.assertAlmostEqual(disk_light_struct.direction.y, 0.87, 5)
+        self.assertAlmostEqual(disk_light_struct.direction.z, 0.12, 5)
+        self.assertEqual(disk_light_struct.shaping_hasvalue, 1)
+
+        self.assertAlmostEqual(disk_light_struct.shaping_value.direction.x, 3, 4)
+        self.assertAlmostEqual(disk_light_struct.shaping_value.direction.y, -1, 4)
+        self.assertAlmostEqual(disk_light_struct.shaping_value.direction.z, 7, 4)
+        self.assertAlmostEqual(disk_light_struct.shaping_value.coneAngleDegrees, 35.0, 4)
+        self.assertAlmostEqual(disk_light_struct.shaping_value.coneSoftness, 3, 4)
+        self.assertAlmostEqual(disk_light_struct.shaping_value.focusExponent, 4, 4)
+
+
+class TestCylinderLight(TestCase):
+    def test_default_initialization(self):
+        cylinder_light = CylinderLight(HASH(0x5))
+        light_struct = cylinder_light.as_struct()
+
+        self.assertEqual(light_struct.sType, _STypes.LIGHT_INFO)
+        self.assertEqual(light_struct.hash, 0x5)
+        self.assertAlmostEqual(light_struct.radiance.x, 1.0, 4)
+        self.assertAlmostEqual(light_struct.radiance.y, 1.0, 4)
+        self.assertAlmostEqual(light_struct.radiance.z, 1.0, 4)
+
+        cylinder_light_struct = ctypes.cast(light_struct.pNext, ctypes.POINTER(_LightInfoCylinderEXT))[0]
+        self.assertEqual(cylinder_light_struct.sType, _STypes.LIGHT_INFO_CYLINDER_EXT)
+        self.assertEqual(cylinder_light_struct.pNext, None)
+        self.assertAlmostEqual(cylinder_light_struct.position.x, 0, 4)
+        self.assertAlmostEqual(cylinder_light_struct.position.y, 0, 4)
+        self.assertAlmostEqual(cylinder_light_struct.position.z, 0, 4)
+        self.assertAlmostEqual(cylinder_light_struct.radius, 0.1, 4)
+        self.assertAlmostEqual(cylinder_light_struct.axis.x, 0.0, 5)
+        self.assertAlmostEqual(cylinder_light_struct.axis.y, 1.0, 5)
+        self.assertAlmostEqual(cylinder_light_struct.axis.z, 0.0, 5)
+        self.assertAlmostEqual(cylinder_light_struct.axisLength, 1.0, 5)
+
+    def test_custom_initialization(self):
+        cylinder_light = CylinderLight(
+            light_hash=HASH(0x5),
+            radiance=Float3D(0.2, 700, 256.7),
+            position=Float3D(5, 4, 3),
+            axis=Float3D(0.7072, 0.7072, 0),
+            axis_length=3.5,
+            radius=3.19
+        )
+        light_struct = cylinder_light.as_struct()
+
+        self.assertEqual(light_struct.sType, _STypes.LIGHT_INFO)
+        self.assertEqual(light_struct.hash, 0x5)
+        self.assertAlmostEqual(light_struct.radiance.x, 0.2, 4)
+        self.assertAlmostEqual(light_struct.radiance.y, 700, 4)
+        self.assertAlmostEqual(light_struct.radiance.z, 256.7, 4)
+
+        cylinder_light_struct = ctypes.cast(light_struct.pNext, ctypes.POINTER(_LightInfoCylinderEXT))[0]
+        self.assertEqual(cylinder_light_struct.sType, _STypes.LIGHT_INFO_CYLINDER_EXT)
+        self.assertEqual(cylinder_light_struct.pNext, None)
+        self.assertAlmostEqual(cylinder_light_struct.position.x, 5, 4)
+        self.assertAlmostEqual(cylinder_light_struct.position.y, 4, 4)
+        self.assertAlmostEqual(cylinder_light_struct.position.z, 3, 4)
+        self.assertAlmostEqual(cylinder_light_struct.axis.x, 0.7072, 5)
+        self.assertAlmostEqual(cylinder_light_struct.axis.y, 0.7072, 5)
+        self.assertAlmostEqual(cylinder_light_struct.axis.z, 0.0, 5)
+        self.assertAlmostEqual(cylinder_light_struct.axisLength, 3.5, 5)
+        self.assertAlmostEqual(cylinder_light_struct.radius, 3.19, 5)
+
+
+class TestDistantLight(TestCase):
+    def test_default_initialization(self):
+        distant_light = DistantLight(HASH(0x5))
+        light_struct = distant_light.as_struct()
+
+        self.assertEqual(light_struct.sType, _STypes.LIGHT_INFO)
+        self.assertEqual(light_struct.hash, 0x5)
+        self.assertAlmostEqual(light_struct.radiance.x, 1.0, 4)
+        self.assertAlmostEqual(light_struct.radiance.y, 1.0, 4)
+        self.assertAlmostEqual(light_struct.radiance.z, 1.0, 4)
+
+        distant_light_struct = ctypes.cast(light_struct.pNext, ctypes.POINTER(_LightInfoDistantEXT))[0]
+        self.assertEqual(distant_light_struct.sType, _STypes.LIGHT_INFO_DISTANT_EXT)
+        self.assertEqual(distant_light_struct.pNext, None)
+        self.assertAlmostEqual(distant_light_struct.direction.x, 0, 4)
+        self.assertAlmostEqual(distant_light_struct.direction.y, -1, 4)
+        self.assertAlmostEqual(distant_light_struct.direction.z, 0, 4)
+        self.assertAlmostEqual(distant_light_struct.angularDiameterDegrees, 0.1, 4)
+
+    def test_custom_initialization(self):
+        distant_light = DistantLight(
+            light_hash=HASH(0x5),
+            radiance=Float3D(0.2, 700, 256.7),
+            direction=Float3D(5, 4, 3),
+            angular_diameter=0.456,
+        )
+        light_struct = distant_light.as_struct()
+
+        self.assertEqual(light_struct.sType, _STypes.LIGHT_INFO)
+        self.assertEqual(light_struct.hash, 0x5)
+        self.assertAlmostEqual(light_struct.radiance.x, 0.2, 4)
+        self.assertAlmostEqual(light_struct.radiance.y, 700, 4)
+        self.assertAlmostEqual(light_struct.radiance.z, 256.7, 4)
+
+        distant_light_struct = ctypes.cast(light_struct.pNext, ctypes.POINTER(_LightInfoDistantEXT))[0]
+        self.assertEqual(distant_light_struct.sType, _STypes.LIGHT_INFO_DISTANT_EXT)
+        self.assertEqual(distant_light_struct.pNext, None)
+        self.assertAlmostEqual(distant_light_struct.direction.x, 5, 4)
+        self.assertAlmostEqual(distant_light_struct.direction.y, 4, 4)
+        self.assertAlmostEqual(distant_light_struct.direction.z, 3, 4)
+        self.assertAlmostEqual(distant_light_struct.angularDiameterDegrees, 0.456, 4)
+
+
+class TestDomeLight(TestCase):
+    def test_default_initialization(self):
+        dome_light = DomeLight(HASH(0x5))
+        light_struct = dome_light.as_struct()
+
+        self.assertEqual(light_struct.sType, _STypes.LIGHT_INFO)
+        self.assertEqual(light_struct.hash, 0x5)
+        self.assertAlmostEqual(light_struct.radiance.x, 1.0, 4)
+        self.assertAlmostEqual(light_struct.radiance.y, 1.0, 4)
+        self.assertAlmostEqual(light_struct.radiance.z, 1.0, 4)
+
+        dome_light_struct = ctypes.cast(light_struct.pNext, ctypes.POINTER(_LightInfoDomeEXT))[0]
+        self.assertEqual(dome_light_struct.sType, _STypes.LIGHT_INFO_DOME_EXT)
+        self.assertEqual(dome_light_struct.pNext, None)
+        transform_struct = dome_light_struct.transform
+        self.assertAlmostEqual(transform_struct.matrix[0][0], 1, 5)
+        self.assertAlmostEqual(transform_struct.matrix[0][1], 0, 5)
+        self.assertAlmostEqual(transform_struct.matrix[0][2], 0, 5)
+        self.assertAlmostEqual(transform_struct.matrix[0][3], 0, 5)
+
+        self.assertAlmostEqual(transform_struct.matrix[1][0], 0, 5)
+        self.assertAlmostEqual(transform_struct.matrix[1][1], 1, 5)
+        self.assertAlmostEqual(transform_struct.matrix[1][2], 0, 5)
+        self.assertAlmostEqual(transform_struct.matrix[1][3], 0, 5)
+
+        self.assertAlmostEqual(transform_struct.matrix[2][0], 0, 5)
+        self.assertAlmostEqual(transform_struct.matrix[2][1], 0, 5)
+        self.assertAlmostEqual(transform_struct.matrix[2][2], 1, 5)
+        self.assertAlmostEqual(transform_struct.matrix[2][3], 0, 5)
+        self.assertEqual(dome_light_struct.colorTexture, "")
+
+    def test_custom_initialization(self):
+        transform = Transform(matrix=[
+            [0, 1, 2, 3],
+            [4, 5, 6, 7],
+            [8, 9, 10, 11],
+        ])
+        dome_light = DomeLight(
+            light_hash=HASH(0x5),
+            radiance=Float3D(0.2, 700, 256.7),
+            transform=transform,
+            color_texture="skybox.dds",
+        )
+        light_struct = dome_light.as_struct()
+
+        self.assertEqual(light_struct.sType, _STypes.LIGHT_INFO)
+        self.assertEqual(light_struct.hash, 0x5)
+        self.assertAlmostEqual(light_struct.radiance.x, 0.2, 4)
+        self.assertAlmostEqual(light_struct.radiance.y, 700, 4)
+        self.assertAlmostEqual(light_struct.radiance.z, 256.7, 4)
+
+        dome_light_struct = ctypes.cast(light_struct.pNext, ctypes.POINTER(_LightInfoDomeEXT))[0]
+        self.assertEqual(dome_light_struct.sType, _STypes.LIGHT_INFO_DOME_EXT)
+        self.assertEqual(dome_light_struct.pNext, None)
+        transform_struct = dome_light_struct.transform
+        self.assertAlmostEqual(transform_struct.matrix[0][0], 0, 5)
+        self.assertAlmostEqual(transform_struct.matrix[0][1], 1, 5)
+        self.assertAlmostEqual(transform_struct.matrix[0][2], 2, 5)
+        self.assertAlmostEqual(transform_struct.matrix[0][3], 3, 5)
+
+        self.assertAlmostEqual(transform_struct.matrix[1][0], 4, 5)
+        self.assertAlmostEqual(transform_struct.matrix[1][1], 5, 5)
+        self.assertAlmostEqual(transform_struct.matrix[1][2], 6, 5)
+        self.assertAlmostEqual(transform_struct.matrix[1][3], 7, 5)
+
+        self.assertAlmostEqual(transform_struct.matrix[2][0], 8, 5)
+        self.assertAlmostEqual(transform_struct.matrix[2][1], 9, 5)
+        self.assertAlmostEqual(transform_struct.matrix[2][2], 10, 5)
+        self.assertAlmostEqual(transform_struct.matrix[2][3], 11, 5)
+        self.assertEqual(dome_light_struct.colorTexture, "skybox.dds")
 
 
 class TestMaterial(TestCase):

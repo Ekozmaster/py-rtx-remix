@@ -315,7 +315,7 @@ class _LightInfoSphereEXT(ctypes.Structure):
     """
     ctpyes direct mapping to remixapi_LightInfoSphereEXT.
 
-    Extension struct used to define sphere light type in "remixapi_LightInfo.pNext" pointer.
+    Extension struct used to define a sphere light type in "remixapi_LightInfo.pNext" pointer.
     """
     _fields_ = [
         ("sType", ctypes.c_int),
@@ -324,6 +324,90 @@ class _LightInfoSphereEXT(ctypes.Structure):
         ("radius", ctypes.c_float),
         ("shaping_hasvalue", ctypes.c_uint32),
         ("shaping_value", _LightInfoLightShaping),
+    ]
+
+
+class _LightInfoRectEXT(ctypes.Structure):
+    """
+    ctpyes direct mapping to remixapi_LightInfoRectEXT.
+
+    Extension struct used to define a Rect light type in "remixapi_LightInfo.pNext" pointer.
+    """
+    _fields_ = [
+        ("sType", ctypes.c_int),
+        ("pNext", ctypes.c_void_p),
+        ("position", Float3D),
+        ("xAxis", Float3D),
+        ("xSize", ctypes.c_float),
+        ("yAxis", Float3D),
+        ("ySize", ctypes.c_float),
+        ("direction", Float3D),
+        ("shaping_hasvalue", ctypes.c_uint32),
+        ("shaping_value", _LightInfoLightShaping),
+    ]
+
+
+class _LightInfoDiskEXT(ctypes.Structure):
+    """
+    ctpyes direct mapping to remixapi_LightInfoDiskEXT.
+
+    Extension struct used to define a Disk light type in "remixapi_LightInfo.pNext" pointer.
+    """
+    _fields_ = [
+        ("sType", ctypes.c_int),
+        ("pNext", ctypes.c_void_p),
+        ("position", Float3D),
+        ("xAxis", Float3D),
+        ("xRadius", ctypes.c_float),
+        ("yAxis", Float3D),
+        ("yRadius", ctypes.c_float),
+        ("direction", Float3D),
+        ("shaping_hasvalue", ctypes.c_uint32),
+        ("shaping_value", _LightInfoLightShaping),
+    ]
+
+
+class _LightInfoCylinderEXT(ctypes.Structure):
+    """
+    ctpyes direct mapping to remixapi_LightInfoCylinderEXT.
+
+    Extension struct used to define a Cylinder light type in "remixapi_LightInfo.pNext" pointer.
+    """
+    _fields_ = [
+        ("sType", ctypes.c_int),
+        ("pNext", ctypes.c_void_p),
+        ("position", Float3D),
+        ("radius", ctypes.c_float),
+        ("axis", Float3D),
+        ("axisLength", ctypes.c_float),
+    ]
+
+
+class _LightInfoDistantEXT(ctypes.Structure):
+    """
+    ctpyes direct mapping to remixapi_LightInfoDistantEXT.
+
+    Extension struct used to define a Distant/Directional light type in "remixapi_LightInfo.pNext" pointer.
+    """
+    _fields_ = [
+        ("sType", ctypes.c_int),
+        ("pNext", ctypes.c_void_p),
+        ("direction", Float3D),
+        ("angularDiameterDegrees", ctypes.c_float),
+    ]
+
+
+class _LightInfoDomeEXT(ctypes.Structure):
+    """
+    ctpyes direct mapping to remixapi_LightInfoDistantEXT.
+
+    Extension struct used to define a Dome/Skybox/HDRI light type in "remixapi_LightInfo.pNext" pointer.
+    """
+    _fields_ = [
+        ("sType", ctypes.c_int),
+        ("pNext", ctypes.c_void_p),
+        ("transform", _Transform),
+        ("colorTexture", ctypes.c_wchar_p),
     ]
 
 

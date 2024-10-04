@@ -1,21 +1,14 @@
 ## Features
-- [ ] Faster input data structures to MeshSurface and SkinningData
+- [ ] Faster input data structures to MeshSurface and SkinningData.
   - [ ] VERTEX_ARRAY & INDEX_ARRAY storing raw _HardcodedVertex & int array pointer + size as optional arguments to MeshSurface.
   - [ ] BLEND_WEIGHT_ARRAY & BLEND_INDEX_ARRAY storing raw data array pointers + size as optional argument types.
+- [ ] Break resource types in separate modules (meshes, materials, lighting...).
 
 ## ctypes mappings
-- [ ] remixapi_LightInfoRectEXT
-- [ ] remixapi_LightInfoDiskEXT
-- [ ] remixapi_LightInfoCylinderEXT
-- [ ] remixapi_LightInfoDistantEXT
-- [ ] remixapi_LightInfoDomeEXT
 - [ ] remixapi_LightInfoUSDEXT
-- [x] remixapi_InstanceInfo skinning pNext
 - [ ] remixapi_InstanceInfoObjectPickingEXT
 - [ ] remixapi_InstanceInfoBlendEXT
 - [ ] remixapi_InstanceInfoBoneTransformsEXT
-- [x] remixapi_Float4D
-- [x] remixapi_Rect2D
 
 ## API Interface
 - [ ] Shutdown

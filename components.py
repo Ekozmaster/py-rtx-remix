@@ -7,9 +7,10 @@ from api_data_types import _STypes, Float3D, _CameraInfoParameterizedEXT, _Camer
     _MeshInfoSkinning, _MeshInfoSurfaceTriangles, _MeshInfo, _Transform, _InstanceInfo, _LightInfoLightShaping, \
     _LightInfo, _LightInfoSphereEXT, CategoryFlags, FilterModes, WrapModes, _MaterialInfo, BlendTypes, \
     _MaterialInfoOpaqueEXT, AlphaTestTypes, _MaterialInfoOpaqueSubsurfaceEXT, _MaterialInfoTranslucentEXT, \
-    _MaterialInfoPortalEXT, _InstanceInfoBoneTransformsEXT
-from exceptions import WrongSkinningDataCount, MissmatchingSkinningDataArrays, ResourceNotInitialized, \
-    SkinningDataOutOfSkeletonRange
+    _MaterialInfoPortalEXT, _InstanceInfoBoneTransformsEXT, _LightInfoRectEXT, _LightInfoDiskEXT, _LightInfoCylinderEXT, \
+    _LightInfoDistantEXT, _LightInfoDomeEXT
+from exceptions import WrongSkinningDataCount, ResourceNotInitialized, SkinningDataOutOfSkeletonRange, \
+    InvalidSkinningData
 
 
 class CameraTypes:
@@ -124,7 +125,7 @@ class SkinningData:
         The layout of Weights and Indices are dependent on 'bones_per_vertex'.
 
         I.e: For 2 bones per vertex:
-            Weigths: [v0-bone0, v1-bone0, v0-bone1, v1-bone1, ...].
+            Weights: [v0-bone0, v1-bone0, v0-bone1, v1-bone1, ...].
 
             Indices: [v0-bone0, v0-bone1, v1-bone0, v1-bone1, ...].
 
@@ -133,7 +134,7 @@ class SkinningData:
         I.e: 4 bones: [0.3, 0.5, 200, 0.3] -> 0.3 for bone0, 0.5 for bone1, 0.2 for bone2, 0 for bone3.
 
         :param bones_per_vertex: How many bones influence each vertex. 4 is a common value.
-        :param blend_weights: Influence weight of each bone over each vertex. Make sure to normalizes them.
+        :param blend_weights: Influence weight of each bone over each vertex.
         :param blend_indices: Per vertex bones indices in the MeshInstance skeleton array.
         """
         self.bones_per_vertex = bones_per_vertex
@@ -144,15 +145,27 @@ class SkinningData:
         self.skinning_struct: _MeshInfoSkinning | None = None
         self.check_for_errors()
 
-    def check_for_errors(self):
+    def check_for_errors(self, should_raise: bool = True):
         """Checks for potential errors in the SkinningData."""
-        blend_vertices_remainder = len(self.blend_weights) % self.bones_per_vertex
-        if blend_vertices_remainder != 0:
-            raise MissmatchingSkinningDataArrays("blend_weights should be multiple of bones_per_vertex.")
+        errors = list()
+        def raise_or_append(error_msg: str):
+            if should_raise:
+                raise InvalidSkinningData(error_msg)
+            errors.append(error_msg)
 
-        blend_indices_remainder = len(self.blend_indices) % self.bones_per_vertex
-        if blend_indices_remainder != 0:
-            raise MissmatchingSkinningDataArrays("blend_indices should be multiple of bones_per_vertex.")
+        if not self.blend_weights:
+            raise_or_append(f"Invalid blend_weights: {self.blend_weights}")
+
+        elif len(self.blend_weights) % self.bones_per_vertex != 0:
+            raise_or_append(f"blend_weights (length {len(self.blend_weights)}) should be multiple of bones_per_vertex.")
+
+        if not self.blend_indices:
+            raise_or_append(f"Invalid blend_indices: {self.blend_indices}")
+
+        elif len(self.blend_indices) % self.bones_per_vertex != 0:
+            raise_or_append(f"blend_indices (length {len(self.blend_indices)}) should be multiple of bones_per_vertex.")
+
+        return errors
 
     def as_struct(self) -> _MeshInfoSkinning:
         """Returns the internal structure form suitable for DLL interop via ctypes."""
@@ -804,18 +817,18 @@ class SphereLight(Light):
     def __init__(
         self,
         light_hash: ctypes.c_uint64,
+        radiance: Float3D = Float3D(1, 1, 1),
         position: Float3D = Float3D(0, 0, 0),
         radius: float = 0.1,
-        radiance: Float3D = Float3D(1, 1, 1),
         shaping_value: LightShapingInfo = None,
     ):
         """
         Defines a Sphere light type.
 
         :param light_hash: A 64bit uint HASH to uniquely identify this light. You should manage your own hashes.
+        :param radiance: RGB Color+Intensity of the light encoded in Float3D format.
         :param position: The light position.
         :param radius: The radius of the sphere light. Anything inside it won't be lit by it.
-        :param radiance: RGB Color+Intensity of the light encoded in Float3D format.
         :param shaping_value: The focal cone shaping for the Light.
         """
         self.position = position
@@ -836,3 +849,220 @@ class SphereLight(Light):
             self.sphere_light_info.shaping_value = self.shaping_value.as_struct()
 
         return super().as_struct(self.sphere_light_info)
+
+
+class RectLight(Light):
+    def __init__(
+        self,
+        light_hash: ctypes.c_uint64,
+        radiance: Float3D = Float3D(1, 1, 1),
+        position: Float3D = Float3D(0, 0, 0),
+        x_axis: Float3D = Float3D(1, 0, 0),
+        x_size: float = 1.0,
+        y_axis: Float3D = Float3D(0, 1, 0),
+        y_size: float = 1.0,
+        direction: Float3D = Float3D(0, 0, 1),
+        shaping_value: LightShapingInfo = None,
+    ):
+        """
+        Defines a Rect light type.
+
+        :param light_hash: A 64bit uint HASH to uniquely identify this light. You should manage your own hashes.
+        :param radiance: RGB Color+Intensity of the light encoded in Float3D format.
+        :param position: The light position.
+        :param x_axis: A unit Vector pointing to the horizontal direction of the rect shape.
+        :param x_size: Rect's horizontal length.
+        :param y_axis: A unit Vector pointing to the vertical direction of the rect shape.
+        :param y_size: Rect's Vertical length.
+        :param direction: Where the rect shape is facing at.
+        :param shaping_value: The focal cone shaping for the Light.
+        """
+        self.position = position
+        self.x_axis = x_axis
+        self.x_size = x_size
+        self.y_axis = y_axis
+        self.y_size = y_size
+        self.direction = direction
+        self.shaping_value = shaping_value
+        self.rect_light_info: _LightInfoRectEXT | None = None
+        super().__init__(light_hash, radiance)
+
+    def as_struct(self, _: None = None) -> _LightInfo:
+        """Returns the internal structure form suitable for DLL interop via ctypes."""
+        self.rect_light_info = _LightInfoRectEXT()
+        self.rect_light_info.sType = _STypes.LIGHT_INFO_RECT_EXT
+        self.rect_light_info.pNext = None
+        self.rect_light_info.position = self.position
+        self.rect_light_info.xAxis = self.x_axis
+        self.rect_light_info.xSize = self.x_size
+        self.rect_light_info.yAxis = self.y_axis
+        self.rect_light_info.ySize = self.y_size
+        self.rect_light_info.direction = self.direction
+        self.rect_light_info.shaping_hasvalue = 1 if self.shaping_value else 0
+        if self.shaping_value:
+            self.rect_light_info.shaping_value = self.shaping_value.as_struct()
+
+        return super().as_struct(self.rect_light_info)
+
+
+class DiskLight(Light):
+    def __init__(
+        self,
+        light_hash: ctypes.c_uint64,
+        radiance: Float3D = Float3D(1, 1, 1),
+        position: Float3D = Float3D(0, 0, 0),
+        x_axis: Float3D = Float3D(1, 0, 0),
+        x_size: float = 1.0,
+        y_axis: Float3D = Float3D(0, 1, 0),
+        y_size: float = 1.0,
+        direction: Float3D = Float3D(0, 0, 1),
+        shaping_value: LightShapingInfo = None,
+    ):
+        """
+        Defines a Disk light type. Similar to Rect lights with separate X and Y axis, they're Ellipse-shaped.
+
+        :param light_hash: A 64bit uint HASH to uniquely identify this light. You should manage your own hashes.
+        :param radiance: RGB Color+Intensity of the light encoded in Float3D format.
+        :param position: The light position.
+        :param x_axis: A unit Vector pointing to the horizontal direction of the disk shape.
+        :param x_size: Disk's horizontal length.
+        :param y_axis: A unit Vector pointing to the vertical direction of the disk shape.
+        :param y_size: Disk's Vertical length.
+        :param direction: Where the rect shape is facing at.
+        :param shaping_value: The focal cone shaping for the Light.
+        """
+        self.position = position
+        self.x_axis = x_axis
+        self.x_size = x_size
+        self.y_axis = y_axis
+        self.y_size = y_size
+        self.direction = direction
+        self.shaping_value = shaping_value
+        self.disk_light_info: _LightInfoDiskEXT | None = None
+        super().__init__(light_hash, radiance)
+
+    def as_struct(self, _: None = None) -> _LightInfo:
+        """Returns the internal structure form suitable for DLL interop via ctypes."""
+        self.disk_light_info = _LightInfoDiskEXT()
+        self.disk_light_info.sType = _STypes.LIGHT_INFO_DISK_EXT
+        self.disk_light_info.pNext = None
+        self.disk_light_info.position = self.position
+        self.disk_light_info.xAxis = self.x_axis
+        self.disk_light_info.xRadius = self.x_size
+        self.disk_light_info.yAxis = self.y_axis
+        self.disk_light_info.yRadius = self.y_size
+        self.disk_light_info.direction = self.direction
+        self.disk_light_info.shaping_hasvalue = 1 if self.shaping_value else 0
+        if self.shaping_value:
+            self.disk_light_info.shaping_value = self.shaping_value.as_struct()
+
+        return super().as_struct(self.disk_light_info)
+
+
+class CylinderLight(Light):
+    def __init__(
+        self,
+        light_hash: ctypes.c_uint64,
+        radiance: Float3D = Float3D(1, 1, 1),
+        position: Float3D = Float3D(0, 0, 0),
+        radius: float = 0.1,
+        axis: Float3D = Float3D(0, 1, 0),
+        axis_length: float = 1.0,
+    ):
+        """
+        Defines a Cylinder light type. Good for Tube-shaped, neon or fluorescent lamps.
+
+        :param light_hash: A 64bit uint HASH to uniquely identify this light. You should manage your own hashes.
+        :param radiance: RGB Color+Intensity of the light encoded in Float3D format.
+        :param position: The light position.
+        :param radius: The tube radius or Thickness.
+        :param axis: Direction vector for the tube.
+        :param axis_length: Half-length of the tube.
+        """
+        self.position = position
+        self.radius = radius
+        self.axis = axis
+        self.axis_length = axis_length
+        self.cylinder_light_info: _LightInfoCylinderEXT | None = None
+        super().__init__(light_hash, radiance)
+
+    def as_struct(self, _: None = None) -> _LightInfo:
+        """Returns the internal structure form suitable for DLL interop via ctypes."""
+        self.cylinder_light_info = _LightInfoCylinderEXT()
+        self.cylinder_light_info.sType = _STypes.LIGHT_INFO_CYLINDER_EXT
+        self.cylinder_light_info.pNext = None
+        self.cylinder_light_info.position = self.position
+        self.cylinder_light_info.radius = self.radius
+        self.cylinder_light_info.axis = self.axis
+        self.cylinder_light_info.axisLength = self.axis_length
+        return super().as_struct(self.cylinder_light_info)
+
+
+class DistantLight(Light):
+    def __init__(
+        self,
+        light_hash: ctypes.c_uint64,
+        radiance: Float3D = Float3D(1, 1, 1),
+        direction: Float3D = Float3D(0, -1, 0),
+        angular_diameter: float = 0.1,
+    ):
+        """
+        Defines a Distant/Directional light type. Like Sun, or Moon. Lights so far away that position doesn't matter.
+
+        angular_diameter maps to the light source's size, producing soft shadows.
+
+        I.e: sin(angular_diameter) == sun's radius in view space (BRDF ray sampling angle).
+
+        :param light_hash: A 64bit uint HASH to uniquely identify this light. You should manage your own hashes.
+        :param radiance: RGB Color+Intensity of the light encoded in Float3D format.
+        :param direction: Direction the light source is point to.
+        :param angular_diameter: In degrees, maps to the light source's diameter to produce soft shadows.
+        """
+        self.light_hash = light_hash
+        self.radiance = radiance
+        self.direction = direction
+        self.angular_diameter = angular_diameter
+        self.distant_light_info: _LightInfoDistantEXT | None = None
+        super().__init__(light_hash, radiance)
+
+    def as_struct(self, _: None = None) -> _LightInfo:
+        """Returns the internal structure form suitable for DLL interop via ctypes."""
+        self.distant_light_info = _LightInfoDistantEXT()
+        self.distant_light_info.sType = _STypes.LIGHT_INFO_DISTANT_EXT
+        self.distant_light_info.pNext = None
+        self.distant_light_info.direction = self.direction
+        self.distant_light_info.angularDiameterDegrees = self.angular_diameter
+        return super().as_struct(self.distant_light_info)
+
+
+class DomeLight(Light):
+    def __init__(
+        self,
+        light_hash: ctypes.c_uint64,
+        radiance: Float3D = Float3D(1, 1, 1),
+        transform: Transform = Transform(),
+        color_texture: str | Path = "",
+    ):
+        """
+        Defines a Dome/Skybox/HDRI light type. You can assign DDS BC6U HDR Textures for colorTexture.
+
+        :param light_hash: A 64bit uint HASH to uniquely identify this light. You should manage your own hashes.
+        :param radiance: RGB Color+Intensity of the light encoded in Float3D format.
+        :param transform: Transform for orienting the sky dome texture.
+        :param color_texture: Path to the .dds texture.
+        """
+        self.light_hash = light_hash
+        self.radiance = radiance
+        self.transform = transform
+        self.color_texture = color_texture
+        self.dome_light_info: _LightInfoDomeEXT | None = None
+        super().__init__(light_hash, radiance)
+
+    def as_struct(self, _: None = None) -> _LightInfo:
+        """Returns the internal structure form suitable for DLL interop via ctypes."""
+        self.dome_light_info = _LightInfoDomeEXT()
+        self.dome_light_info.sType = _STypes.LIGHT_INFO_DOME_EXT
+        self.dome_light_info.pNext = None
+        self.dome_light_info.transform = self.transform.as_struct()
+        self.dome_light_info.colorTexture = str(self.color_texture)
+        return super().as_struct(self.dome_light_info)
