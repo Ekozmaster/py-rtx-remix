@@ -3,7 +3,8 @@ from pathlib import Path
 
 from components import Camera, Mesh, MeshInstance, Light
 from api_data_types import _StartupInfo, _STypes, ReturnCodes, _PresentInfo
-from exceptions import FailedToInitializeAPI, FailedToCreateMesh, APINotInitialized, FailedToSetupCamera
+from exceptions import FailedToInitializeAPI, FailedToCreateMesh, APINotInitialized, FailedToSetupCamera, \
+    FailedToCreateLight
 
 
 class StartupInfo:
@@ -57,6 +58,10 @@ class RTXRemixAPI:
         :param StartupInfo startup_info: Instance of a StartupInfo with basic settings for the API and Engine.
         :return: SUCCESS status code if succeeded, raises ValueError if not.
         """
+        if self._initialized:
+            print("Remix API already initialized.")
+            return ReturnCodes.SUCCESS
+
         try:
             self._remixapi_dll_handle = ctypes.CDLL(str(self.dll_path))
         except FileNotFoundError:
@@ -64,7 +69,11 @@ class RTXRemixAPI:
 
         self.startup_info_struct = startup_info.as_struct()
         init_status = self._remixapi_dll_handle.init(ctypes.byref(self.startup_info_struct))
-        if init_status != ReturnCodes.SUCCESS:
+        if init_status == ReturnCodes.ALREADY_EXISTS:
+            # TODO: Why we get this return code from remixapi? How should it be handled?
+            print("Remix API already initialized.")
+
+        elif init_status != ReturnCodes.SUCCESS:
             raise FailedToInitializeAPI(f"Failed to startup Remix. Error code: {init_status} - {ReturnCodes.get_name(init_status)}")
 
         self._initialized = True
@@ -86,7 +95,7 @@ class RTXRemixAPI:
             raise APINotInitialized(f"Can't call setup_camera without initializing the API first.")
 
         elif return_code != ReturnCodes.SUCCESS:
-            raise FailedToSetupCamera(f"Failed to startup Remix. Error code: {return_code} - {ReturnCodes.get_name(return_code)}")
+            raise FailedToSetupCamera(f"Failed to call setup_camera. Error code: {return_code} - {ReturnCodes.get_name(return_code)}")
 
         return return_code
 
@@ -110,7 +119,7 @@ class RTXRemixAPI:
             raise APINotInitialized(f"Can't call create_mesh without initializing the API first.")
 
         elif return_code != ReturnCodes.SUCCESS:
-            raise FailedToSetupCamera(f"Failed to startup Remix. Error code: {return_code} - {ReturnCodes.get_name(return_code)}")
+            raise FailedToCreateMesh(f"Failed to call create_mesh. Error code: {return_code} - {ReturnCodes.get_name(return_code)}")
 
         mesh.handle = scene_mesh_handle
 
@@ -136,7 +145,7 @@ class RTXRemixAPI:
             raise APINotInitialized(f"Can't call create_mesh without initializing the API first.")
 
         elif return_code != ReturnCodes.SUCCESS:
-            raise FailedToSetupCamera(f"Failed to startup Remix. Error code: {return_code} - {ReturnCodes.get_name(return_code)}")
+            raise FailedToCreateLight(f"Failed to call create_light. Error code: {return_code} - {ReturnCodes.get_name(return_code)}")
 
         light.handle = scene_light_handle
         return return_code
@@ -177,8 +186,8 @@ class RTXRemixAPI:
             if return_code != ReturnCodes.SUCCESS:
                 raise ValueError(f"RemixAPI didn't shutdown happily. Return code {return_code} - {ReturnCodes.get_name(return_code)}")
 
-            self._remixapi_dll_handle = None
-            self._initialized = False
+        self._remixapi_dll_handle = None
+        self._initialized = False
 
     def __del__(self):
         self.shutdown()

@@ -1,6 +1,5 @@
 import ctypes
 import os
-import time
 from unittest import TestCase
 import tkinter as tk
 
@@ -12,12 +11,14 @@ from exceptions import FailedToInitializeAPI, APINotInitialized
 
 class TestRemixAPIInit(TestCase):
     def setUp(self):
-        self.remix_api = None
+        if not hasattr(self, 'remix_api'):
+            self.remix_api: RTXRemixAPI | None = None
 
-    def tearDown(self):
         if self.remix_api:
             self.remix_api.shutdown()
-            self.remix_api = None
+
+    def tearDown(self):
+        self.remix_api.shutdown()
 
         if os.path.exists('not_bin/'):
             os.rename('not_bin', 'bin')
@@ -39,6 +40,19 @@ class TestRemixAPIInit(TestCase):
         return_code = self.remix_api.init(startup_info)
         self.assertEqual(return_code, ReturnCodes.SUCCESS)
 
+    def test_calling_init_twice_should_return_success(self):
+        window = tk.Tk()
+        window.title("PyRTXRemix")
+        window.geometry(f"400x300")
+
+        self.remix_api = RTXRemixAPI('remixapi.dll')
+        startup_info = StartupInfo(hwnd=window.winfo_id())
+        return_code = self.remix_api.init(startup_info)
+        self.assertEqual(return_code, ReturnCodes.SUCCESS)
+
+        return_code = self.remix_api.init(startup_info)
+        self.assertEqual(return_code, ReturnCodes.SUCCESS)
+
     def test_init_without_remix_in_bin_folder_should_raise_exception(self):
         window_width = 400
         window_height = 300
@@ -57,7 +71,8 @@ class TestRemixAPIInit(TestCase):
 
 
 class TestRemixAPICameraAPI(TestCase):
-    def setUp(self):
+    @classmethod
+    def setUpClass(self):
         self.window_width = 400
         self.window_height = 300
         self.window = tk.Tk()
@@ -67,17 +82,20 @@ class TestRemixAPICameraAPI(TestCase):
         startup_info = StartupInfo(hwnd=self.window.winfo_id())
         self.remix_api.init(startup_info)
 
-    def tearDown(self):
-        if self.remix_api:
-            self.remix_api.shutdown()
-            self.remix_api = None
+    def setUp(self):
+        self.remix_api._initialized = True
+
+    @classmethod
+    def tearDownClass(self):
+        self.remix_api.shutdown()
 
         if self.window:
             self.window.destroy()
             self.window = None
 
     def test_setup_camera_without_initializing_remix_should_raise_exception(self):
-        self.remix_api.shutdown()
+        # TODO: Actually call Shutdown to make sure the API can be shutdown and reinitialized just fine.
+        self.remix_api._initialized = False
 
         camera = Camera(
             position=Float3D(0, 0, 0), forward=Float3D(0, 0, 1), up=Float3D(0, 1, 0), right=Float3D(1, 0, 0), fov_y=70,
@@ -85,7 +103,6 @@ class TestRemixAPICameraAPI(TestCase):
         )
         with self.assertRaises(APINotInitialized):
             self.remix_api.setup_camera(camera)
-            self.remix_api = None
 
     def test_setup_basic_camera_should_return_success(self):
         camera = Camera(
@@ -97,7 +114,8 @@ class TestRemixAPICameraAPI(TestCase):
 
 
 class TestRemixAPIMeshAPI(TestCase):
-    def setUp(self):
+    @classmethod
+    def setUpClass(self):
         self.window_width = 400
         self.window_height = 300
         self.window = tk.Tk()
@@ -107,19 +125,20 @@ class TestRemixAPIMeshAPI(TestCase):
         startup_info = StartupInfo(hwnd=self.window.winfo_id())
         self.remix_api.init(startup_info)
 
-    def tearDown(self):
-        if self.remix_api:
-            self.remix_api.shutdown()
-            self.remix_api = None
+    def setUp(self):
+        self.remix_api._initialized = True
+
+    @classmethod
+    def tearDownClass(self):
+        self.remix_api.shutdown()
 
         if self.window:
             self.window.destroy()
             self.window = None
 
-        time.sleep(0.3)
-
     def test_create_mesh_without_initializing_remix_should_raise_exception(self):
-        self.remix_api.shutdown()
+        # TODO: Actually call Shutdown to make sure the API can be shutdown and reinitialized just fine.
+        self.remix_api._initialized = False
 
         vertices = [
             Vertex(position=Float3D(5, -5, 10), normal=Float3D(0, 0, -1)).as_struct(),
@@ -145,7 +164,8 @@ class TestRemixAPIMeshAPI(TestCase):
 
 
 class TestRemixAPILightAPI(TestCase):
-    def setUp(self):
+    @classmethod
+    def setUpClass(self):
         self.window_width = 400
         self.window_height = 300
         self.window = tk.Tk()
@@ -155,24 +175,24 @@ class TestRemixAPILightAPI(TestCase):
         startup_info = StartupInfo(hwnd=self.window.winfo_id())
         self.remix_api.init(startup_info)
 
-    def tearDown(self):
-        if self.remix_api:
-            self.remix_api.shutdown()
-            self.remix_api = None
+    def setUp(self):
+        self.remix_api._initialized = True
+
+    @classmethod
+    def tearDownClass(self):
+        self.remix_api.shutdown()
 
         if self.window:
             self.window.destroy()
             self.window = None
 
-        time.sleep(0.3)
-
     def test_create_light_without_initializing_remix_should_raise_exception(self):
-        self.remix_api.shutdown()
+        # TODO: Actually call Shutdown to make sure the API can be shutdown and reinitialized just fine.
+        self.remix_api._initialized = False
 
         light = SphereLight(position=Float3D(0, 8, 0), radius=0.1, light_hash=ctypes.c_uint64(0x3), radiance=Float3D(100, 200, 100))
         with self.assertRaises(APINotInitialized):
             self.remix_api.create_light(light)
-            self.remix_api = None
 
     def test_create_basic_light_should_return_success(self):
         light = SphereLight(position=Float3D(0, 8, 0), radius=0.1, light_hash=ctypes.c_uint64(0x3), radiance=Float3D(100, 200, 100))

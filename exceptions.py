@@ -36,3 +36,8 @@ class FailedToSetupCamera(ValueError):
 class FailedToCreateMesh(ValueError):
     """For when the Remix API failed to create a mesh."""
     ...
+
+
+class FailedToCreateLight(ValueError):
+    """For when the Remix API failed to create a light."""
+    ...
