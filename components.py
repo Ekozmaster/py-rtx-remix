@@ -239,26 +239,27 @@ class Material(ABC):
         self.filter_mode = filter_mode
         self.wrap_mode_u = wrap_mode_u
         self.wrap_mode_v = wrap_mode_v
+        self.material_info: _MaterialInfo | None = None
 
     @abstractmethod
-    def as_struct(self, _child_struct: ctypes.Structure) -> _MaterialInfo:
+    def as_struct(self, _child_struct_pointer: ctypes.c_void_p | None = None) -> _MaterialInfo:
         """Returns the internal structure form suitable for DLL interop via ctypes."""
-        material_info = _MaterialInfo()
-        material_info.sType = _STypes.MATERIAL_INFO
-        material_info.pNext = ctypes.cast(ctypes.byref(_child_struct), ctypes.c_void_p)
-        material_info.albedoTexture = str(self.albedo_texture)
-        material_info.normalTexture = str(self.normal_texture)
-        material_info.tangentTexture = str(self.tangent_texture)
-        material_info.emissiveTexture = str(self.emissive_texture)
-        material_info.emissiveIntensity = self.emissive_intensity
-        material_info.emissiveColorConstant = self.emissive_color_constant
-        material_info.spriteSheetRow = self.sprite_sheet_row
-        material_info.spriteSheetCol = self.sprite_sheet_col
-        material_info.spriteSheetFps = self.sprite_sheet_fps
-        material_info.filterMode = self.filter_mode
-        material_info.wrapModeU = self.wrap_mode_u
-        material_info.wrapModeV = self.wrap_mode_v
-        return material_info
+        self.material_info = _MaterialInfo()
+        self.material_info.sType = _STypes.MATERIAL_INFO
+        self.material_info.pNext = _child_struct_pointer
+        self.material_info.albedoTexture = str(self.albedo_texture)
+        self.material_info.normalTexture = str(self.normal_texture)
+        self.material_info.tangentTexture = str(self.tangent_texture)
+        self.material_info.emissiveTexture = str(self.emissive_texture)
+        self.material_info.emissiveIntensity = self.emissive_intensity
+        self.material_info.emissiveColorConstant = self.emissive_color_constant
+        self.material_info.spriteSheetRow = self.sprite_sheet_row
+        self.material_info.spriteSheetCol = self.sprite_sheet_col
+        self.material_info.spriteSheetFps = self.sprite_sheet_fps
+        self.material_info.filterMode = self.filter_mode
+        self.material_info.wrapModeU = self.wrap_mode_u
+        self.material_info.wrapModeV = self.wrap_mode_v
+        return self.material_info
 
 
 class OpacitySSSData:
@@ -400,7 +401,8 @@ class OpacityPBR(Material):
         self.alpha_test_type = alpha_test_type
         self.alpha_reference_value = alpha_reference_value
         self.subsurface_data = subsurface_data
-        self.opaque_mat = None
+        self.subsurface_data_struct: ctypes.Structure | None = None
+        self.opaque_mat: _MaterialInfoOpaqueEXT | None = None
 
     def as_struct(self, _: None = None) -> _MaterialInfo:
         """Returns the internal structure form suitable for DLL interop via ctypes."""
@@ -408,7 +410,8 @@ class OpacityPBR(Material):
         self.opaque_mat.sType = _STypes.MATERIAL_INFO_OPAQUE_EXT
         self.opaque_mat.pNext = None
         if self.subsurface_data:
-            self.opaque_mat.pNext = ctypes.cast(ctypes.byref(self.subsurface_data.as_struct()), ctypes.c_void_p)
+            self.subsurface_data_struct = self.subsurface_data.as_struct()
+            self.opaque_mat.pNext = ctypes.cast(ctypes.byref(self.subsurface_data_struct), ctypes.c_void_p)
         self.opaque_mat.roughnessTexture = str(self.roughness_texture)
         self.opaque_mat.metallicTexture = str(self.metallic_texture)
         self.opaque_mat.anisotropy = self.anisotropy
@@ -427,7 +430,8 @@ class OpacityPBR(Material):
         self.opaque_mat.invertedBlend = self.inverted_blend
         self.opaque_mat.alphaTestType = self.alpha_test_type
         self.opaque_mat.alphaReferenceValue = self.alpha_reference_value
-        return super().as_struct(self.opaque_mat)
+        self_pointer = ctypes.cast(ctypes.byref(self.opaque_mat), ctypes.c_void_p)
+        return super().as_struct(self_pointer)
 
 
 class TranslucentPBR(Material):
@@ -492,7 +496,8 @@ class TranslucentPBR(Material):
         self.tranlucent_mat.thinWallThickness_hasvalue = 1 if self.thin_wall_thickness is not None else 0
         self.tranlucent_mat.thinWallThickness_value = self.thin_wall_thickness or 0
         self.tranlucent_mat.useDiffuseLayer = self.use_diffuse_layer
-        return super().as_struct(self.tranlucent_mat)
+        self_pointer = ctypes.cast(ctypes.byref(self.tranlucent_mat), ctypes.c_void_p)
+        return super().as_struct(self_pointer)
 
 
 class Portal(Material):
@@ -543,7 +548,8 @@ class Portal(Material):
         self.portal_mat.pNext = None
         self.portal_mat.rayPortalIndex = self.ray_portal_index
         self.portal_mat.rotationSpeed = self.rotation_speed
-        return super().as_struct(self.portal_mat)
+        self_pointer = ctypes.cast(ctypes.byref(self.portal_mat), ctypes.c_void_p)
+        return super().as_struct(self_pointer)
 
 
 class MeshSurface:
@@ -777,16 +783,17 @@ class Light(ABC):
             raise ValueError(f"Light hash must be a value bigger than 0. Got {light_hash} instead.")
         self.light_hash = light_hash
         self.radiance = radiance
+        self.light_info: _LightInfo | None = None
 
     @abstractmethod
-    def as_struct(self, _child_struct: ctypes.Structure = None) -> _LightInfo:
+    def as_struct(self, _child_struct_pointer: ctypes.c_void_p | None = None) -> _LightInfo:
         """Returns the internal structure form suitable for DLL interop via ctypes."""
-        light_info = _LightInfo()
-        light_info.sType = _STypes.LIGHT_INFO
-        light_info.pNext = ctypes.cast(ctypes.byref(_child_struct), ctypes.c_void_p)
-        light_info.hash = self.light_hash
-        light_info.radiance = self.radiance
-        return light_info
+        self.light_info = _LightInfo()
+        self.light_info.sType = _STypes.LIGHT_INFO
+        self.light_info.pNext = _child_struct_pointer
+        self.light_info.hash = self.light_hash
+        self.light_info.radiance = self.radiance
+        return self.light_info
 
 
 class LightShapingInfo:
@@ -848,7 +855,8 @@ class SphereLight(Light):
         if self.shaping_value:
             self.sphere_light_info.shaping_value = self.shaping_value.as_struct()
 
-        return super().as_struct(self.sphere_light_info)
+        self_pointer = ctypes.cast(ctypes.byref(self.sphere_light_info), ctypes.c_void_p)
+        return super().as_struct(self_pointer)
 
 
 class RectLight(Light):
@@ -902,7 +910,8 @@ class RectLight(Light):
         if self.shaping_value:
             self.rect_light_info.shaping_value = self.shaping_value.as_struct()
 
-        return super().as_struct(self.rect_light_info)
+        self_pointer = ctypes.cast(ctypes.byref(self.rect_light_info), ctypes.c_void_p)
+        return super().as_struct(self_pointer)
 
 
 class DiskLight(Light):
@@ -956,7 +965,8 @@ class DiskLight(Light):
         if self.shaping_value:
             self.disk_light_info.shaping_value = self.shaping_value.as_struct()
 
-        return super().as_struct(self.disk_light_info)
+        self_pointer = ctypes.cast(ctypes.byref(self.disk_light_info), ctypes.c_void_p)
+        return super().as_struct(self_pointer)
 
 
 class CylinderLight(Light):
@@ -995,7 +1005,8 @@ class CylinderLight(Light):
         self.cylinder_light_info.radius = self.radius
         self.cylinder_light_info.axis = self.axis
         self.cylinder_light_info.axisLength = self.axis_length
-        return super().as_struct(self.cylinder_light_info)
+        self_pointer = ctypes.cast(ctypes.byref(self.cylinder_light_info), ctypes.c_void_p)
+        return super().as_struct(self_pointer)
 
 
 class DistantLight(Light):
@@ -1032,7 +1043,8 @@ class DistantLight(Light):
         self.distant_light_info.pNext = None
         self.distant_light_info.direction = self.direction
         self.distant_light_info.angularDiameterDegrees = self.angular_diameter
-        return super().as_struct(self.distant_light_info)
+        self_pointer = ctypes.cast(ctypes.byref(self.distant_light_info), ctypes.c_void_p)
+        return super().as_struct(self_pointer)
 
 
 class DomeLight(Light):
@@ -1065,4 +1077,5 @@ class DomeLight(Light):
         self.dome_light_info.pNext = None
         self.dome_light_info.transform = self.transform.as_struct()
         self.dome_light_info.colorTexture = str(self.color_texture)
-        return super().as_struct(self.dome_light_info)
+        self_pointer = ctypes.cast(ctypes.byref(self.dome_light_info), ctypes.c_void_p)
+        return super().as_struct(self_pointer)

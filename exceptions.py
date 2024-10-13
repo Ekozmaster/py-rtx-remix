@@ -28,16 +28,6 @@ class FailedToInitializeAPI(ValueError):
     ...
 
 
-class FailedToSetupCamera(ValueError):
-    """For when the Remix API failed to setup a camera for any reason."""
-    ...
-
-
-class FailedToCreateMesh(ValueError):
-    """For when the Remix API failed to create a mesh."""
-    ...
-
-
-class FailedToCreateLight(ValueError):
-    """For when the Remix API failed to create a light."""
+class FailedToCallAPI(ValueError):
+    """For any calls to the DLL API resulting in unsuccessful return code."""
     ...

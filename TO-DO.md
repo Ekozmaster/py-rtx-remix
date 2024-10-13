@@ -41,13 +41,14 @@ Object picking utils
 ## Tests
 ### Unit Tests:
 -[ ] Lights
+- [ ] Test MeshInstance with uninitialized material
 
 ### Integration Tests
 - [ ] Creation and deletion of materials.
 - [ ] Updating and Recreating materials.
-- [ ] Creation and deletion of meshes.
+- [x] Creation and deletion of meshes.
 - [ ] Updating and Recreating meshes.
-- [ ] Creation and deletion of lights.
+- [x] Creation and deletion of lights.
 - [ ] Updating and Recreating lights.
 - [ ] Creation and deletion of cameras.
 - [ ] Updating and Recreating cameras.

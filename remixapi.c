@@ -45,29 +45,35 @@ DllExport void present(remixapi_PresentInfo* info) {
 }
 
 DllExport remixapi_ErrorCode create_mesh(remixapi_MeshInfo* info, remixapi_MeshHandle* handle) {
-    remixapi_ErrorCode r = g_remix.CreateMesh(info, handle);
-    if (r != REMIXAPI_ERROR_CODE_SUCCESS) {
-        printf("remix::CreateMesh() failed: %d", r);
-        return r;
-    }
-    return REMIXAPI_ERROR_CODE_SUCCESS;
+    return g_remix.CreateMesh(info, handle);
+}
+
+DllExport remixapi_ErrorCode destroy_mesh(remixapi_MeshHandle handle) {
+    return g_remix.DestroyMesh(handle);
 }
 
 DllExport remixapi_ErrorCode create_light(remixapi_LightInfo* info, remixapi_LightHandle* handle) {
-    remixapi_ErrorCode r = g_remix.CreateLight(info, handle);
-    if (r != REMIXAPI_ERROR_CODE_SUCCESS) {
-        printf("remix::CreateLight() failed: %d", r);
-        return r;
-    }
-    return REMIXAPI_ERROR_CODE_SUCCESS;
+    return g_remix.CreateLight(info, handle);
 }
 
-DllExport void draw_instance(remixapi_InstanceInfo* info) {
-    g_remix.DrawInstance(info);
+DllExport remixapi_ErrorCode destroy_light(remixapi_LightHandle handle) {
+    return g_remix.DestroyLight(handle);
 }
 
-DllExport void draw_light_instance(remixapi_LightHandle handle) {
-    g_remix.DrawLightInstance(handle);
+DllExport remixapi_ErrorCode create_material(remixapi_MaterialInfo* info, remixapi_MaterialHandle* handle) {
+    return g_remix.CreateMaterial(info, handle);
+}
+
+DllExport remixapi_ErrorCode destroy_material(remixapi_MaterialHandle handle) {
+    return g_remix.DestroyMaterial(handle);
+}
+
+DllExport remixapi_ErrorCode draw_instance(remixapi_InstanceInfo* info) {
+    return g_remix.DrawInstance(info);
+}
+
+DllExport remixapi_ErrorCode draw_light_instance(remixapi_LightHandle handle) {
+    return g_remix.DrawLightInstance(handle);
 }
 
 DllExport remixapi_ErrorCode destroy(void) {

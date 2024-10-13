@@ -3,10 +3,10 @@ import os
 from unittest import TestCase
 import tkinter as tk
 
-from api_data_types import ReturnCodes, Float3D
-from components import Camera, Vertex, MeshSurface, Mesh, SphereLight
+from api_data_types import ReturnCodes, Float3D, HASH
+from components import Camera, Vertex, MeshSurface, Mesh, SphereLight, MeshInstance, OpacityPBR
 from core import StartupInfo, RTXRemixAPI
-from exceptions import FailedToInitializeAPI, APINotInitialized
+from exceptions import FailedToInitializeAPI, APINotInitialized, ResourceNotInitialized
 
 
 class TestRemixAPIInit(TestCase):
@@ -72,29 +72,29 @@ class TestRemixAPIInit(TestCase):
 
 class TestRemixAPICameraAPI(TestCase):
     @classmethod
-    def setUpClass(self):
-        self.window_width = 400
-        self.window_height = 300
-        self.window = tk.Tk()
-        self.window.title("PyRTXRemix")
-        self.window.geometry(f"{self.window_width}x{self.window_height}")
-        self.remix_api = RTXRemixAPI('remixapi.dll')
-        startup_info = StartupInfo(hwnd=self.window.winfo_id())
-        self.remix_api.init(startup_info)
+    def setUpClass(cls):
+        cls.window_width = 400
+        cls.window_height = 300
+        cls.window = tk.Tk()
+        cls.window.title("PyRTXRemix")
+        cls.window.geometry(f"{cls.window_width}x{cls.window_height}")
+        cls.remix_api = RTXRemixAPI('remixapi.dll')
+        startup_info = StartupInfo(hwnd=cls.window.winfo_id())
+        cls.remix_api.init(startup_info)
 
     def setUp(self):
         self.remix_api._initialized = True
 
     @classmethod
-    def tearDownClass(self):
-        self.remix_api.shutdown()
+    def tearDownClass(cls):
+        cls.remix_api.shutdown()
 
-        if self.window:
-            self.window.destroy()
-            self.window = None
+        if cls.window:
+            cls.window.destroy()
+            cls.window = None
 
     def test_setup_camera_without_initializing_remix_should_raise_exception(self):
-        # TODO: Actually call Shutdown to make sure the API can be shutdown and reinitialized just fine.
+        # TODO: Actually call Shutdown to make sure the API can be shutdown and reinitialized consistently.
         self.remix_api._initialized = False
 
         camera = Camera(
@@ -115,29 +115,29 @@ class TestRemixAPICameraAPI(TestCase):
 
 class TestRemixAPIMeshAPI(TestCase):
     @classmethod
-    def setUpClass(self):
-        self.window_width = 400
-        self.window_height = 300
-        self.window = tk.Tk()
-        self.window.title("PyRTXRemix")
-        self.window.geometry(f"{self.window_width}x{self.window_height}")
-        self.remix_api = RTXRemixAPI('remixapi.dll')
-        startup_info = StartupInfo(hwnd=self.window.winfo_id())
-        self.remix_api.init(startup_info)
+    def setUpClass(cls):
+        cls.window_width = 400
+        cls.window_height = 300
+        cls.window = tk.Tk()
+        cls.window.title("PyRTXRemix")
+        cls.window.geometry(f"{cls.window_width}x{cls.window_height}")
+        cls.remix_api = RTXRemixAPI('remixapi.dll')
+        startup_info = StartupInfo(hwnd=cls.window.winfo_id())
+        cls.remix_api.init(startup_info)
 
     def setUp(self):
         self.remix_api._initialized = True
 
     @classmethod
-    def tearDownClass(self):
-        self.remix_api.shutdown()
+    def tearDownClass(cls):
+        cls.remix_api.shutdown()
 
-        if self.window:
-            self.window.destroy()
-            self.window = None
+        if cls.window:
+            cls.window.destroy()
+            cls.window = None
 
     def test_create_mesh_without_initializing_remix_should_raise_exception(self):
-        # TODO: Actually call Shutdown to make sure the API can be shutdown and reinitialized just fine.
+        # TODO: Actually call Shutdown to make sure the API can be shutdown and reinitialized consistently.
         self.remix_api._initialized = False
 
         vertices = [
@@ -162,32 +162,76 @@ class TestRemixAPIMeshAPI(TestCase):
         return_code = self.remix_api.create_mesh(mesh)
         self.assertEqual(return_code, ReturnCodes.SUCCESS)
 
+    def test_create_basic_mesh_instance_and_draw_it_should_return_success(self):
+        vertices = [
+            Vertex(position=Float3D(5, -5, 10), normal=Float3D(0, 0, -1)).as_struct(),
+            Vertex(position=Float3D(0, 5, 10), normal=Float3D(0, 0, -1), color=0x0).as_struct(),
+            Vertex(position=Float3D(-5, -5, 10), normal=Float3D(0, 0, -1)).as_struct()
+        ]
+        surface = MeshSurface(vertices=vertices, indices=[0, 1, 2])
+        mesh = Mesh(surfaces=[surface.as_struct()])
+        return_code = self.remix_api.create_mesh(mesh)
+        self.assertEqual(return_code, ReturnCodes.SUCCESS)
+        mesh_instance = MeshInstance(mesh=mesh)
+        return_code = self.remix_api.draw_instance(mesh_instance)
+        self.assertEqual(return_code, ReturnCodes.SUCCESS)
+
+    def test_destroy_basic_mesh_should_return_success(self):
+        vertices = [
+            Vertex(position=Float3D(5, -5, 10), normal=Float3D(0, 0, -1)).as_struct(),
+            Vertex(position=Float3D(0, 5, 10), normal=Float3D(0, 0, -1), color=0x0).as_struct(),
+            Vertex(position=Float3D(-5, -5, 10), normal=Float3D(0, 0, -1)).as_struct()
+        ]
+        surface = MeshSurface(vertices=vertices, indices=[0, 1, 2])
+        mesh = Mesh(surfaces=[surface.as_struct()])
+        return_code = self.remix_api.create_mesh(mesh)
+        self.assertEqual(return_code, ReturnCodes.SUCCESS)
+        return_code = self.remix_api.destroy_mesh(mesh)
+        self.assertEqual(return_code, ReturnCodes.SUCCESS)
+        self.assertEqual(mesh.handle.value, None)
+
+    def test_destroy_already_destroyed_mesh_should_return_success(self):
+        vertices = [
+            Vertex(position=Float3D(5, -5, 10), normal=Float3D(0, 0, -1)).as_struct(),
+            Vertex(position=Float3D(0, 5, 10), normal=Float3D(0, 0, -1), color=0x0).as_struct(),
+            Vertex(position=Float3D(-5, -5, 10), normal=Float3D(0, 0, -1)).as_struct()
+        ]
+        surface = MeshSurface(vertices=vertices, indices=[0, 1, 2])
+        mesh = Mesh(surfaces=[surface.as_struct()])
+        return_code = self.remix_api.create_mesh(mesh)
+        self.assertEqual(return_code, ReturnCodes.SUCCESS)
+        return_code = self.remix_api.destroy_mesh(mesh)
+        self.assertEqual(return_code, ReturnCodes.SUCCESS)
+        self.assertEqual(mesh.handle.value, None)
+        return_code = self.remix_api.destroy_mesh(mesh)
+        self.assertEqual(return_code, ReturnCodes.SUCCESS)
+
 
 class TestRemixAPILightAPI(TestCase):
     @classmethod
-    def setUpClass(self):
-        self.window_width = 400
-        self.window_height = 300
-        self.window = tk.Tk()
-        self.window.title("PyRTXRemix")
-        self.window.geometry(f"{self.window_width}x{self.window_height}")
-        self.remix_api = RTXRemixAPI('remixapi.dll')
-        startup_info = StartupInfo(hwnd=self.window.winfo_id())
-        self.remix_api.init(startup_info)
+    def setUpClass(cls):
+        cls.window_width = 400
+        cls.window_height = 300
+        cls.window = tk.Tk()
+        cls.window.title("PyRTXRemix")
+        cls.window.geometry(f"{cls.window_width}x{cls.window_height}")
+        cls.remix_api = RTXRemixAPI('remixapi.dll')
+        startup_info = StartupInfo(hwnd=cls.window.winfo_id())
+        cls.remix_api.init(startup_info)
 
     def setUp(self):
         self.remix_api._initialized = True
 
     @classmethod
-    def tearDownClass(self):
-        self.remix_api.shutdown()
+    def tearDownClass(cls):
+        cls.remix_api.shutdown()
 
-        if self.window:
-            self.window.destroy()
-            self.window = None
+        if cls.window:
+            cls.window.destroy()
+            cls.window = None
 
     def test_create_light_without_initializing_remix_should_raise_exception(self):
-        # TODO: Actually call Shutdown to make sure the API can be shutdown and reinitialized just fine.
+        # TODO: Actually call Shutdown to make sure the API can be shutdown and reinitialized consistently.
         self.remix_api._initialized = False
 
         light = SphereLight(position=Float3D(0, 8, 0), radius=0.1, light_hash=ctypes.c_uint64(0x3), radiance=Float3D(100, 200, 100))
@@ -198,3 +242,103 @@ class TestRemixAPILightAPI(TestCase):
         light = SphereLight(position=Float3D(0, 8, 0), radius=0.1, light_hash=ctypes.c_uint64(0x3), radiance=Float3D(100, 200, 100))
         return_code = self.remix_api.create_light(light)
         self.assertEqual(return_code, ReturnCodes.SUCCESS)
+
+    def test_create_basic_light_and_draw_it_should_return_success(self):
+        light = SphereLight(position=Float3D(0, 8, 0), radius=0.1, light_hash=ctypes.c_uint64(0x3), radiance=Float3D(100, 200, 100))
+        return_code = self.remix_api.create_light(light)
+        self.assertEqual(return_code, ReturnCodes.SUCCESS)
+        return_code = self.remix_api.draw_light_instance(light)
+        self.assertEqual(return_code, ReturnCodes.SUCCESS)
+
+    def test_draw_light_with_not_created_light_should_raise_exception(self):
+        light = SphereLight(position=Float3D(0, 8, 0), radius=0.1, light_hash=ctypes.c_uint64(0x3), radiance=Float3D(100, 200, 100))
+        with self.assertRaises(ResourceNotInitialized):
+            self.remix_api.draw_light_instance(light)
+
+    def test_destroy_light_should_return_success(self):
+        light = SphereLight(position=Float3D(0, 8, 0), radius=0.1, light_hash=ctypes.c_uint64(0x3), radiance=Float3D(100, 200, 100))
+        return_code = self.remix_api.create_light(light)
+        self.assertEqual(return_code, ReturnCodes.SUCCESS)
+        return_code = self.remix_api.destroy_light(light)
+        self.assertEqual(return_code, ReturnCodes.SUCCESS)
+        self.assertEqual(light.handle.value, None)
+
+
+class TestRemixAPIPresent(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.window_width = 400
+        cls.window_height = 300
+        cls.window = tk.Tk()
+        cls.window.title("PyRTXRemix")
+        cls.window.geometry(f"{cls.window_width}x{cls.window_height}")
+        cls.remix_api = RTXRemixAPI('remixapi.dll')
+        startup_info = StartupInfo(hwnd=cls.window.winfo_id())
+        cls.remix_api.init(startup_info)
+
+    def setUp(self):
+        self.remix_api._initialized = True
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.remix_api.shutdown()
+
+        if cls.window:
+            cls.window.destroy()
+            cls.window = None
+
+    def test_regular_present_should_return_success(self):
+        return_code = self.remix_api.present()
+        self.assertEqual(return_code, ReturnCodes.SUCCESS)
+
+    def test_present_without_initializing_api_should_raise_exception(self):
+        # TODO: Actually call Shutdown to make sure the API can be shutdown and reinitialized consistently.
+        self.remix_api._initialized = False
+
+        with self.assertRaises(APINotInitialized):
+            self.remix_api.present()
+
+
+class TestRemixAPIMaterialAPI(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.window_width = 400
+        cls.window_height = 300
+        cls.window = tk.Tk()
+        cls.window.title("PyRTXRemix")
+        cls.window.geometry(f"{cls.window_width}x{cls.window_height}")
+        cls.remix_api = RTXRemixAPI('remixapi.dll')
+        startup_info = StartupInfo(hwnd=cls.window.winfo_id())
+        cls.remix_api.init(startup_info)
+
+    def setUp(self):
+        self.remix_api._initialized = True
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.remix_api.shutdown()
+
+        if cls.window:
+            cls.window.destroy()
+            cls.window = None
+
+    def test_create_material_without_initializing_remix_should_raise_exception(self):
+        # TODO: Actually call Shutdown to make sure the API can be shutdown and reinitialized consistently.
+        self.remix_api._initialized = False
+
+        material = OpacityPBR(mat_hash=HASH(0x123), albedo_texture="foo.dds")
+        with self.assertRaises(APINotInitialized):
+            self.remix_api.create_material(material)
+
+    def test_create_opacity_pbr_material_should_return_success(self):
+        material = OpacityPBR(mat_hash=HASH(0x123), albedo_texture="foo.dds")
+        return_code = self.remix_api.create_material(material)
+        self.assertEqual(return_code, ReturnCodes.SUCCESS)
+
+    def test_destroy_opacity_pbr_material_should_return_success(self):
+        material = OpacityPBR(mat_hash=HASH(0x123), albedo_texture="foo.dds")
+        return_code = self.remix_api.create_material(material)
+        self.assertEqual(return_code, ReturnCodes.SUCCESS)
+        return_code = self.remix_api.destroy_material(material)
+        self.assertEqual(return_code, ReturnCodes.SUCCESS)
+        self.assertEqual(material.handle.value, None)
