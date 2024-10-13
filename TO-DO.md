@@ -3,6 +3,7 @@
   - [ ] VERTEX_ARRAY & INDEX_ARRAY storing raw _HardcodedVertex & int array pointer + size as optional arguments to MeshSurface.
   - [ ] BLEND_WEIGHT_ARRAY & BLEND_INDEX_ARRAY storing raw data array pointers + size as optional argument types.
 - [ ] Break resource types in separate modules (meshes, materials, lighting...).
+- [ ] Protect the API for thread safety.
 
 ## ctypes mappings
 - [ ] remixapi_LightInfoUSDEXT
@@ -43,13 +44,13 @@ Object picking utils
 
 ### Integration Tests
 - [ ] Creation and deletion of materials.
-- [ ] Updating materials.
+- [ ] Updating and Recreating materials.
 - [ ] Creation and deletion of meshes.
-- [ ] Updating meshes.
+- [ ] Updating and Recreating meshes.
 - [ ] Creation and deletion of lights.
-- [ ] Updating lights.
+- [ ] Updating and Recreating lights.
 - [ ] Creation and deletion of cameras.
-- [ ] Updating cameras.
+- [ ] Updating and Recreating cameras.
 
 ### E2E Tests:
 - [ ] Capture screenshots of the Remix window.

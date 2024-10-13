@@ -36,8 +36,8 @@ DllExport remixapi_ErrorCode init(remixapi_StartupInfo* startupInfo) {
     return REMIXAPI_ERROR_CODE_SUCCESS;
 }
 
-DllExport void setup_camera(remixapi_CameraInfo* cam_info) {
-    g_remix.SetupCamera(cam_info);
+DllExport remixapi_ErrorCode setup_camera(remixapi_CameraInfo* cam_info) {
+    return g_remix.SetupCamera(cam_info);
 }
 
 DllExport void present(remixapi_PresentInfo* info) {
@@ -70,8 +70,8 @@ DllExport void draw_light_instance(remixapi_LightHandle handle) {
     g_remix.DrawLightInstance(handle);
 }
 
-DllExport void destroy(void) {
-  if (g_remix.Shutdown) {
-    remixapi_lib_shutdownAndUnloadRemixDll(&g_remix, g_remix_dll);
-  }
+DllExport remixapi_ErrorCode destroy(void) {
+    if (g_remix.Shutdown) {
+        return remixapi_lib_shutdownAndUnloadRemixDll(&g_remix, g_remix_dll);
+    }
 }

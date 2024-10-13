@@ -4,18 +4,18 @@ from api_data_types import _Transform
 from components import Camera, Float3D, Vertex, MeshSurface, Mesh, MeshInstance, Transform, SphereLight, SkinningData, \
     Skeleton
 from core import RTXRemixAPI, StartupInfo
-from windowing import WinAPIWindow
+import tkinter as tk
 
 
 def main():
     window_width = 1600
     window_height = 900
-    window = WinAPIWindow("PyRTXRemix", window_width, window_height)
-    window.show()
-    window.update()
+    window = tk.Tk()
+    window.title("PyRTXRemix")
+    window.geometry(f"{window_width}x{window_height}")
 
     remix_api = RTXRemixAPI()
-    startup_info = StartupInfo(hwnd=window.hwnd)
+    startup_info = StartupInfo(hwnd=window.winfo_id())
     remix_api.init(startup_info)
 
     # Creating a Camera
@@ -60,13 +60,19 @@ def main():
     light = SphereLight(position=Float3D(0, 8, 0), radius=0.1, light_hash=ctypes.c_uint64(0x3), radiance=Float3D(100, 200, 100))
     remix_api.create_light(light)
 
-    while not window.should_quit:
-        has_messages = window.process_window_messages()
-        if not has_messages:
-            remix_api.setup_camera(camera)
-            remix_api.draw_instance(mesh_instance)
-            remix_api.draw_light_instance(light)
-            remix_api.present(window.hwnd)
+    while True:
+        if not window.winfo_exists():
+            window.destroy()
+            break
+
+        window.update_idletasks()
+        window.update()
+        remix_api.setup_camera(camera)
+        remix_api.draw_instance(mesh_instance)
+        remix_api.draw_light_instance(light)
+        remix_api.present(window.winfo_id())
+
+    remix_api.shutdown()
 
 
 if __name__ == '__main__':
