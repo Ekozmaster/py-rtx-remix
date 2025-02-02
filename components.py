@@ -329,7 +329,7 @@ class OpacityPBR(Material):
         alpha_is_thin_film_thickness: bool = False,
         height_texture: str | Path = "",
         displace_in: float = 0,
-        use_draw_call_alpha_state: bool = False,
+        use_draw_call_alpha_state: bool = True,
         blend_type_value: int | None = None,
         inverted_blend: bool = False,
         alpha_test_type: int = AlphaTestTypes.NEVER,

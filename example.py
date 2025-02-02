@@ -1,6 +1,6 @@
 import ctypes
 
-from api_data_types import _Transform, HASH
+from api_data_types import _Transform, HASH, Float2D
 from components import Camera, Float3D, Vertex, MeshSurface, Mesh, MeshInstance, Transform, SphereLight, SkinningData, \
     Skeleton, OpacityPBR
 from core import RTXRemixAPI, StartupInfo
@@ -18,7 +18,7 @@ def main():
     startup_info = StartupInfo(hwnd=window.winfo_id())
     remix_api.init(startup_info)
 
-    mat = OpacityPBR(mat_hash=HASH(0x1))
+    mat = OpacityPBR(mat_hash=HASH(0x1), albedo_texture="test.dds")
     return_code = remix_api.create_material(mat)
 
     # Creating a Camera
@@ -28,9 +28,9 @@ def main():
     )
     # Creating a Mesh Asset and a MeshInstance
     vertices = [
-        Vertex(position=Float3D(5, -5, 10), normal=Float3D(0, 0, -1)).as_struct(),
-        Vertex(position=Float3D(0, 5, 10), normal=Float3D(0, 0, -1), color=0xFFFFFF).as_struct(),
-        Vertex(position=Float3D(-5, -5, 10), normal=Float3D(0, 0, -1)).as_struct()
+        Vertex(position=Float3D(5, -5, 10), normal=Float3D(0, 0, -1), texcoord=Float2D(0,0)).as_struct(),
+        Vertex(position=Float3D(0, 5, 10), normal=Float3D(0, 0, -1), texcoord=Float2D(0,1), color=0xFFFFFF).as_struct(),
+        Vertex(position=Float3D(-5, -5, 10), normal=Float3D(0, 0, -1), texcoord=Float2D(1,0)).as_struct()
     ]
     skinning_data = SkinningData(
         bones_per_vertex=2,

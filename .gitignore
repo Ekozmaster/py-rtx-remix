@@ -22,5 +22,6 @@ remixapi.obj
 vc140.pdb
 build/
 *.dds
+!test.dds
 rtx.conf
 dxvk.conf

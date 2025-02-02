@@ -1231,7 +1231,7 @@ class TestOpacityPBR(TestCase):
         self.assertEqual(opacity_struct.alphaIsThinFilmThickness, 0)
         self.assertEqual(opacity_struct.heightTexture, "")
         self.assertAlmostEqual(opacity_struct.displaceIn, 0, 4)
-        self.assertEqual(opacity_struct.useDrawCallAlphaState, 0)
+        self.assertEqual(opacity_struct.useDrawCallAlphaState, 1)
         self.assertEqual(opacity_struct.blendType_hasvalue, 0)
         self.assertEqual(opacity_struct.blendType_value, 0)
         self.assertEqual(opacity_struct.invertedBlend, 0)
@@ -1266,7 +1266,7 @@ class TestOpacityPBR(TestCase):
             alpha_is_thin_film_thickness=True,
             height_texture=Path("displacement.dds"),
             displace_in=0.00015,
-            use_draw_call_alpha_state=True,
+            use_draw_call_alpha_state=False,
             blend_type_value=BlendTypes.REVERSE_COLOR_EMISSIVE,
             inverted_blend=True,
             alpha_test_type=AlphaTestTypes.GREATER_OR_EQUAL,
@@ -1310,7 +1310,7 @@ class TestOpacityPBR(TestCase):
         self.assertEqual(opacity_struct.alphaIsThinFilmThickness, 1)
         self.assertEqual(opacity_struct.heightTexture, "displacement.dds")
         self.assertAlmostEqual(opacity_struct.displaceIn, 0.00015, 6)
-        self.assertEqual(opacity_struct.useDrawCallAlphaState, 1)
+        self.assertEqual(opacity_struct.useDrawCallAlphaState, 0)
         self.assertEqual(opacity_struct.blendType_hasvalue, 1)
         self.assertEqual(opacity_struct.blendType_value, BlendTypes.REVERSE_COLOR_EMISSIVE)
         self.assertEqual(opacity_struct.invertedBlend, 1)
