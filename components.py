@@ -247,6 +247,7 @@ class Material(ABC):
         self.material_info = _MaterialInfo()
         self.material_info.sType = _STypes.MATERIAL_INFO
         self.material_info.pNext = _child_struct_pointer
+        self.material_info.hash = self.mat_hash
         self.material_info.albedoTexture = str(self.albedo_texture)
         self.material_info.normalTexture = str(self.normal_texture)
         self.material_info.tangentTexture = str(self.tangent_texture)
@@ -327,12 +328,13 @@ class OpacityPBR(Material):
         thin_film_thickness_value: float | None = None,
         alpha_is_thin_film_thickness: bool = False,
         height_texture: str | Path = "",
-        height_texture_strength: float = 0,
+        displace_in: float = 0,
         use_draw_call_alpha_state: bool = False,
         blend_type_value: int | None = None,
         inverted_blend: bool = False,
         alpha_test_type: int = AlphaTestTypes.NEVER,
         alpha_reference_value: int = 0,
+        displace_out: float = 0,
         subsurface_data: OpacitySSSData | None = None,
     ):
         """
@@ -362,12 +364,13 @@ class OpacityPBR(Material):
         :param thin_film_thickness_value: Thickness of the thin film effect (colorful distortions on oil or bubbles).
         :param alpha_is_thin_film_thickness: Use alpha channel do drive thin thickness instead.
         :param height_texture: Path to the .dds (BC4) Height/Displacement (POM) texture.
-        :param height_texture_strength: POM max. depth in world-space texture size. i.e: A value of 0.1 for a 1sqr meter texture = 10cm max. depth.
+        :param displace_in: POM max. depth in world-space texture size. i.e: A value of 0.1 for a 1sqr meter texture = 10cm max. depth.
         :param use_draw_call_alpha_state: When injected in a dx9 game, whether it should use alpha flags from original draw call or not.
         :param blend_type_value: Which blend type to use. Check BlendTypes class for more info.
         :param inverted_blend: Should the alpha blending operation be inverted?
         :param alpha_test_type: Type of alpha test operation to perform.
         :param alpha_reference_value: The reference value to compute transparency from alpha channel.
+        :param displace_out: Same as displace_in, but for outwards protrusion.
         """
         super().__init__(
             mat_hash=mat_hash,
@@ -394,12 +397,13 @@ class OpacityPBR(Material):
         self.thin_film_thickness_value = thin_film_thickness_value
         self.alpha_is_thin_film_thickness = alpha_is_thin_film_thickness
         self.height_texture = height_texture
-        self.height_texture_strength = height_texture_strength
+        self.displace_in = displace_in
         self.use_draw_call_alpha_state = use_draw_call_alpha_state
         self.blend_type_value = blend_type_value
         self.inverted_blend = inverted_blend
         self.alpha_test_type = alpha_test_type
         self.alpha_reference_value = alpha_reference_value
+        self.displace_out = displace_out
         self.subsurface_data = subsurface_data
         self.subsurface_data_struct: ctypes.Structure | None = None
         self.opaque_mat: _MaterialInfoOpaqueEXT | None = None
@@ -423,13 +427,14 @@ class OpacityPBR(Material):
         self.opaque_mat.thinFilmThickness_value = self.thin_film_thickness_value or 0
         self.opaque_mat.alphaIsThinFilmThickness = self.alpha_is_thin_film_thickness
         self.opaque_mat.heightTexture = str(self.height_texture)
-        self.opaque_mat.heightTextureStrength = self.height_texture_strength
+        self.opaque_mat.displaceIn = self.displace_in
         self.opaque_mat.useDrawCallAlphaState = self.use_draw_call_alpha_state
         self.opaque_mat.blendType_hasvalue = 1 if self.blend_type_value is not None else 0
         self.opaque_mat.blendType_value = self.blend_type_value or BlendTypes.ALPHA
         self.opaque_mat.invertedBlend = self.inverted_blend
         self.opaque_mat.alphaTestType = self.alpha_test_type
         self.opaque_mat.alphaReferenceValue = self.alpha_reference_value
+        self.opaque_mat.displaceOut = self.displace_out
         self_pointer = ctypes.cast(ctypes.byref(self.opaque_mat), ctypes.c_void_p)
         return super().as_struct(self_pointer)
 

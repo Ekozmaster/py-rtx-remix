@@ -505,6 +505,7 @@ class _MaterialInfo(ctypes.Structure):
     _fields_ = [
         ("sType", ctypes.c_int),
         ("pNext", ctypes.c_void_p),
+        ("hash", ctypes.c_uint64),
         ("albedoTexture", ctypes.c_wchar_p),
         ("normalTexture", ctypes.c_wchar_p),
         ("tangentTexture", ctypes.c_wchar_p),
@@ -532,6 +533,7 @@ class _MaterialInfoOpaqueEXT(ctypes.Structure):
         ("sType", ctypes.c_int),
         ("pNext", ctypes.c_void_p),
         ("roughnessTexture", ctypes.c_wchar_p),
+        ("metallicTexture", ctypes.c_wchar_p),
         ("anisotropy", ctypes.c_float),
         ("albedoConstant", Float3D),
         ("opacityConstant", ctypes.c_float),
@@ -541,13 +543,14 @@ class _MaterialInfoOpaqueEXT(ctypes.Structure):
         ("thinFilmThickness_value", ctypes.c_float),
         ("alphaIsThinFilmThickness", ctypes.c_uint32),
         ("heightTexture", ctypes.c_wchar_p),
-        ("heightTextureStrength", ctypes.c_float),
+        ("displaceIn", ctypes.c_float),
         ("useDrawCallAlphaState", ctypes.c_uint32),
         ("blendType_hasvalue", ctypes.c_uint32),
-        ("blendType_value", ctypes.c_uint32),
+        ("blendType_value", ctypes.c_int32),
         ("invertedBlend", ctypes.c_uint32),
-        ("alphaTestType", ctypes.c_uint32),
+        ("alphaTestType", ctypes.c_int32),
         ("alphaReferenceValue", ctypes.c_uint8),
+        ("displaceOut", ctypes.c_float),
     ]
 
 

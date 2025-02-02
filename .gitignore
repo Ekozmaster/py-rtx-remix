@@ -3,6 +3,8 @@
 .idea/
 .venv/
 .env/
+*.pyproj
+*.sln
 CppProperties.json
 __pycache__/
 *.pytest_cache/
@@ -13,7 +15,12 @@ rtx-remix/
 *_d3d9.log
 metrics.txt
 remixapi.dll
+remixapi.pdb
 remixapi.exp
 remixapi.lib
 remixapi.obj
+vc140.pdb
 build/
+*.dds
+rtx.conf
+dxvk.conf

@@ -197,7 +197,7 @@ class RTXRemixAPI:
 
     def create_material(self, material: Material) -> int:
         """
-        Registers a new material inside Remix engine. If successful, that material can later be attached to a MeshInstance.
+        Registers a new material inside Remix engine. If successful, that material can later be attached to a MeshSurface.
         Make sure to call destroy_material when you're done with it.
 
         :param material: Instance of the Material class to create. One of OpacityPBR, TranslucentPBR or Portal.

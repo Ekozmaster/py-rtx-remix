@@ -1230,13 +1230,14 @@ class TestOpacityPBR(TestCase):
         self.assertAlmostEqual(opacity_struct.thinFilmThickness_value, 0, 4)
         self.assertEqual(opacity_struct.alphaIsThinFilmThickness, 0)
         self.assertEqual(opacity_struct.heightTexture, "")
-        self.assertAlmostEqual(opacity_struct.heightTextureStrength, 0, 4)
+        self.assertAlmostEqual(opacity_struct.displaceIn, 0, 4)
         self.assertEqual(opacity_struct.useDrawCallAlphaState, 0)
         self.assertEqual(opacity_struct.blendType_hasvalue, 0)
         self.assertEqual(opacity_struct.blendType_value, 0)
         self.assertEqual(opacity_struct.invertedBlend, 0)
         self.assertEqual(opacity_struct.alphaTestType, AlphaTestTypes.NEVER)
         self.assertEqual(opacity_struct.alphaReferenceValue, 0)
+        self.assertEqual(opacity_struct.displaceOut, 0)
 
     def test_custom_initialization(self):
         mat = OpacityPBR(
@@ -1264,12 +1265,13 @@ class TestOpacityPBR(TestCase):
             thin_film_thickness_value=0.314,
             alpha_is_thin_film_thickness=True,
             height_texture=Path("displacement.dds"),
-            height_texture_strength=0.00015,
+            displace_in=0.00015,
             use_draw_call_alpha_state=True,
             blend_type_value=BlendTypes.REVERSE_COLOR_EMISSIVE,
             inverted_blend=True,
             alpha_test_type=AlphaTestTypes.GREATER_OR_EQUAL,
             alpha_reference_value=255,
+            displace_out=3.14,
         )
         self.assertEqual(mat.handle.value, None)
 
@@ -1307,13 +1309,14 @@ class TestOpacityPBR(TestCase):
         self.assertAlmostEqual(opacity_struct.thinFilmThickness_value, 0.314, 4)
         self.assertEqual(opacity_struct.alphaIsThinFilmThickness, 1)
         self.assertEqual(opacity_struct.heightTexture, "displacement.dds")
-        self.assertAlmostEqual(opacity_struct.heightTextureStrength, 0.00015, 6)
+        self.assertAlmostEqual(opacity_struct.displaceIn, 0.00015, 6)
         self.assertEqual(opacity_struct.useDrawCallAlphaState, 1)
         self.assertEqual(opacity_struct.blendType_hasvalue, 1)
         self.assertEqual(opacity_struct.blendType_value, BlendTypes.REVERSE_COLOR_EMISSIVE)
         self.assertEqual(opacity_struct.invertedBlend, 1)
         self.assertEqual(opacity_struct.alphaTestType, AlphaTestTypes.GREATER_OR_EQUAL)
         self.assertEqual(opacity_struct.alphaReferenceValue, 255)
+        self.assertAlmostEqual(opacity_struct.displaceOut, 3.14, 4)
 
     def test_sss_data(self):
         sss_data = OpacitySSSData(

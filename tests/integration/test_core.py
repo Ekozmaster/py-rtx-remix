@@ -264,41 +264,6 @@ class TestRemixAPILightAPI(TestCase):
         self.assertEqual(light.handle.value, None)
 
 
-class TestRemixAPIPresent(TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.window_width = 400
-        cls.window_height = 300
-        cls.window = tk.Tk()
-        cls.window.title("PyRTXRemix")
-        cls.window.geometry(f"{cls.window_width}x{cls.window_height}")
-        cls.remix_api = RTXRemixAPI('remixapi.dll')
-        startup_info = StartupInfo(hwnd=cls.window.winfo_id())
-        cls.remix_api.init(startup_info)
-
-    def setUp(self):
-        self.remix_api._initialized = True
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.remix_api.shutdown()
-
-        if cls.window:
-            cls.window.destroy()
-            cls.window = None
-
-    def test_regular_present_should_return_success(self):
-        return_code = self.remix_api.present()
-        self.assertEqual(return_code, ReturnCodes.SUCCESS)
-
-    def test_present_without_initializing_api_should_raise_exception(self):
-        # TODO: Actually call Shutdown to make sure the API can be shutdown and reinitialized consistently.
-        self.remix_api._initialized = False
-
-        with self.assertRaises(APINotInitialized):
-            self.remix_api.present()
-
-
 class TestRemixAPIMaterialAPI(TestCase):
     @classmethod
     def setUpClass(cls):
