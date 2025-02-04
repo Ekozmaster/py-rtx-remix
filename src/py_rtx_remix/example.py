@@ -1,9 +1,9 @@
 import ctypes
 import tkinter as tk
 
-from api_data_types import HASH, Float2D
-from components import Camera, Float3D, Vertex, MeshSurface, Mesh, MeshInstance, Transform, SphereLight, OpacityPBR
-from core import RTXRemixAPI, StartupInfo
+from .api_data_types import HASH, Float2D
+from .components import Camera, Float3D, Vertex, MeshSurface, Mesh, MeshInstance, Transform, SphereLight, OpacityPBR
+from .core import RTXRemixAPI, StartupInfo
 
 
 def main():

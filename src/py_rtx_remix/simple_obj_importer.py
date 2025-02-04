@@ -1,7 +1,7 @@
 from collections import OrderedDict
 from typing import List
 
-from components import Float3D, Float2D, Vertex, MeshSurface, Mesh, Material
+from .components import Float3D, Float2D, Vertex, MeshSurface, Mesh, Material
 
 
 def _load_obj_from_split(

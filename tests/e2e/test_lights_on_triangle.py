@@ -1,15 +1,16 @@
 import ctypes
+import time
 import tkinter as tk
 from unittest import TestCase
-import time
 
 import numpy as np
-
-from api_data_types import Float3D, Float2D
-from components import Camera, Vertex, MeshSurface, Mesh, MeshInstance, Transform, SphereLight, RectLight, \
-    CylinderLight, DiskLight, DistantLight, DomeLight
-from core import RTXRemixAPI, StartupInfo
 from PIL import Image, ImageGrab
+
+from src.py_rtx_remix.api_data_types import Float3D, Float2D
+from src.py_rtx_remix.components import Camera, Vertex, MeshSurface, Mesh, MeshInstance, Transform, SphereLight, \
+    RectLight, \
+    CylinderLight, DiskLight, DistantLight, DomeLight
+from src.py_rtx_remix.core import RTXRemixAPI, StartupInfo
 
 
 def create_tk_window(width: int, height: int) -> tk.Tk:

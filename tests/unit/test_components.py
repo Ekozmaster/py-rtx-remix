@@ -2,15 +2,16 @@ import ctypes
 from pathlib import Path
 from unittest import TestCase
 
-from api_data_types import Float3D, _STypes, _CameraInfoParameterizedEXT, Float2D, _MeshInfoSurfaceTriangles, \
-    CategoryFlags, HASH, _LightInfoSphereEXT, FilterModes, WrapModes, _MaterialInfoOpaqueEXT, BlendTypes, \
+from src.py_rtx_remix.api_data_types import Float3D, _STypes, _CameraInfoParameterizedEXT, Float2D, CategoryFlags, HASH, \
+    _LightInfoSphereEXT, FilterModes, WrapModes, _MaterialInfoOpaqueEXT, BlendTypes, \
     AlphaTestTypes, _MaterialInfoOpaqueSubsurfaceEXT, _MaterialInfoTranslucentEXT, _MaterialInfoPortalEXT, _Transform, \
     _InstanceInfoBoneTransformsEXT, _LightInfoRectEXT, _LightInfoDiskEXT, _LightInfoCylinderEXT, _LightInfoDistantEXT, \
     _LightInfoDomeEXT
-from components import Camera, CameraTypes, Vertex, MeshSurface, Mesh, Transform, MeshInstance, LightShapingInfo, Light, \
+from src.py_rtx_remix.components import Camera, CameraTypes, Vertex, MeshSurface, Mesh, Transform, MeshInstance, \
+    LightShapingInfo, Light, \
     SphereLight, Material, OpacityPBR, OpacitySSSData, TranslucentPBR, Portal, SkinningData, Skeleton, RectLight, \
     DiskLight, CylinderLight, DistantLight, DomeLight
-from exceptions import WrongSkinningDataCount, ResourceNotInitialized, SkinningDataOutOfSkeletonRange, \
+from src.py_rtx_remix.exceptions import WrongSkinningDataCount, ResourceNotInitialized, SkinningDataOutOfSkeletonRange, \
     InvalidSkinningData
 
 

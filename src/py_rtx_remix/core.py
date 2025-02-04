@@ -1,9 +1,9 @@
 import ctypes
 from pathlib import Path
 
-from components import Camera, Mesh, MeshInstance, Light, Material
-from api_data_types import _StartupInfo, _STypes, ReturnCodes, _PresentInfo
-from exceptions import FailedToInitializeAPI, APINotInitialized, ResourceNotInitialized, FailedToCallAPI
+from .api_data_types import _StartupInfo, _STypes, ReturnCodes, _PresentInfo
+from .components import Camera, Mesh, MeshInstance, Light, Material
+from .exceptions import FailedToInitializeAPI, APINotInitialized, ResourceNotInitialized, FailedToCallAPI
 
 
 class StartupInfo:
@@ -42,12 +42,15 @@ class StartupInfo:
 
 
 class RTXRemixAPI:
-    def __init__(self, dll_path: str = './remixapi.dll'):
+    def __init__(self, dll_path: str | None = None):
         """
         Main interface class to communicate with the RTX Remix API.
         """
         self.startup_info_struct: _StartupInfo | None = None
-        self.dll_path: Path = Path(dll_path).resolve()
+        if dll_path:
+            self.dll_path: Path = Path(dll_path).resolve()
+        else:
+            self.dll_path = (Path(__file__).parent / 'remixapi.dll').resolve()
         self._remixapi_dll_handle: ctypes.CDLL | None = None
         self._initialized: bool = False
 

@@ -3,10 +3,10 @@ import os
 from unittest import TestCase
 import tkinter as tk
 
-from api_data_types import ReturnCodes, Float3D, HASH
-from components import Camera, Vertex, MeshSurface, Mesh, SphereLight, MeshInstance, OpacityPBR
-from core import StartupInfo, RTXRemixAPI
-from exceptions import FailedToInitializeAPI, APINotInitialized, ResourceNotInitialized
+from src.py_rtx_remix.api_data_types import ReturnCodes, Float3D, HASH
+from src.py_rtx_remix.components import Camera, Vertex, MeshSurface, Mesh, SphereLight, MeshInstance, OpacityPBR
+from src.py_rtx_remix.core import StartupInfo, RTXRemixAPI
+from src.py_rtx_remix.exceptions import FailedToInitializeAPI, APINotInitialized, ResourceNotInitialized
 
 
 class TestRemixAPIInit(TestCase):
@@ -35,7 +35,7 @@ class TestRemixAPIInit(TestCase):
         window.title("PyRTXRemix")
         window.geometry(f"{window_width}x{window_height}")
 
-        self.remix_api = RTXRemixAPI('remixapi.dll')
+        self.remix_api = RTXRemixAPI('src/py_rtx_remix/remixapi.dll')
         startup_info = StartupInfo(hwnd=window.winfo_id())
         return_code = self.remix_api.init(startup_info)
         # TODO: Remix shutdown has been disabled, so it will be already initialized, for now.
@@ -49,7 +49,7 @@ class TestRemixAPIInit(TestCase):
         window.update()
         window.update_idletasks()
 
-        self.remix_api = RTXRemixAPI('remixapi.dll')
+        self.remix_api = RTXRemixAPI('src/py_rtx_remix/remixapi.dll')
         startup_info = StartupInfo(hwnd=window.winfo_id())
         return_code = self.remix_api.init(startup_info)
         self.assertEqual(return_code, ReturnCodes.ALREADY_EXISTS)
@@ -64,7 +64,7 @@ class TestRemixAPIInit(TestCase):
         window.title("PyRTXRemix")
         window.geometry(f"{window_width}x{window_height}")
 
-        self.remix_api = RTXRemixAPI('remixapi.dll')
+        self.remix_api = RTXRemixAPI('src/py_rtx_remix/remixapi.dll')
         startup_info = StartupInfo(hwnd=window.winfo_id())
 
         os.rename('bin', 'not_bin')
@@ -84,7 +84,7 @@ class TestRemixAPICameraAPI(TestCase):
         cls.window = tk.Tk()
         cls.window.title("PyRTXRemix")
         cls.window.geometry(f"{cls.window_width}x{cls.window_height}")
-        cls.remix_api = RTXRemixAPI('remixapi.dll')
+        cls.remix_api = RTXRemixAPI('src/py_rtx_remix/remixapi.dll')
         startup_info = StartupInfo(hwnd=cls.window.winfo_id())
         cls.remix_api.init(startup_info)
 
@@ -127,7 +127,7 @@ class TestRemixAPIMeshAPI(TestCase):
         cls.window = tk.Tk()
         cls.window.title("PyRTXRemix")
         cls.window.geometry(f"{cls.window_width}x{cls.window_height}")
-        cls.remix_api = RTXRemixAPI('remixapi.dll')
+        cls.remix_api = RTXRemixAPI('src/py_rtx_remix/remixapi.dll')
         startup_info = StartupInfo(hwnd=cls.window.winfo_id())
         cls.remix_api.init(startup_info)
 
@@ -221,7 +221,7 @@ class TestRemixAPILightAPI(TestCase):
         cls.window = tk.Tk()
         cls.window.title("PyRTXRemix")
         cls.window.geometry(f"{cls.window_width}x{cls.window_height}")
-        cls.remix_api = RTXRemixAPI('remixapi.dll')
+        cls.remix_api = RTXRemixAPI('src/py_rtx_remix/remixapi.dll')
         startup_info = StartupInfo(hwnd=cls.window.winfo_id())
         cls.remix_api.init(startup_info)
 
@@ -278,7 +278,7 @@ class TestRemixAPIMaterialAPI(TestCase):
         cls.window = tk.Tk()
         cls.window.title("PyRTXRemix")
         cls.window.geometry(f"{cls.window_width}x{cls.window_height}")
-        cls.remix_api = RTXRemixAPI('remixapi.dll')
+        cls.remix_api = RTXRemixAPI('src/py_rtx_remix/remixapi.dll')
         startup_info = StartupInfo(hwnd=cls.window.winfo_id())
         cls.remix_api.init(startup_info)
 

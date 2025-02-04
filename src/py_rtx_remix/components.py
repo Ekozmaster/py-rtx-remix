@@ -3,13 +3,13 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List
 
-from api_data_types import _STypes, Float3D, _CameraInfoParameterizedEXT, _CameraInfo, Float2D, _HardcodedVertex, \
+from .api_data_types import _STypes, Float3D, _CameraInfoParameterizedEXT, _CameraInfo, Float2D, _HardcodedVertex, \
     _MeshInfoSkinning, _MeshInfoSurfaceTriangles, _MeshInfo, _Transform, _InstanceInfo, _LightInfoLightShaping, \
     _LightInfo, _LightInfoSphereEXT, CategoryFlags, FilterModes, WrapModes, _MaterialInfo, BlendTypes, \
     _MaterialInfoOpaqueEXT, AlphaTestTypes, _MaterialInfoOpaqueSubsurfaceEXT, _MaterialInfoTranslucentEXT, \
     _MaterialInfoPortalEXT, _InstanceInfoBoneTransformsEXT, _LightInfoRectEXT, _LightInfoDiskEXT, _LightInfoCylinderEXT, \
     _LightInfoDistantEXT, _LightInfoDomeEXT
-from exceptions import WrongSkinningDataCount, ResourceNotInitialized, SkinningDataOutOfSkeletonRange, \
+from .exceptions import WrongSkinningDataCount, ResourceNotInitialized, SkinningDataOutOfSkeletonRange, \
     InvalidSkinningData
 
 

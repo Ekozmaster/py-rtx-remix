@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from api_data_types import HASH
+from src.py_rtx_remix.api_data_types import HASH
 
 
 class TestHASH(TestCase):

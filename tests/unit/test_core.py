@@ -1,7 +1,7 @@
 from unittest import TestCase
 
-from core import StartupInfo
-from api_data_types import _STypes
+from src.py_rtx_remix.core import StartupInfo
+from src.py_rtx_remix.api_data_types import _STypes
 
 
 class TestStartupInfo(TestCase):

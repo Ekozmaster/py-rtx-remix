@@ -1,0 +1,23 @@
+[project]
+name = "py_rtx_remix"
+version = "0.0.1"
+authors = [
+  { name="Emanuel Kozerski (E-man)", email="emanualkoz.97@gmail.com" },
+]
+description = "A Python Wrapper over the Nvidia RTX Remix C API for its Raytracing Engine."
+readme = "README.md"
+requires-python = ">=3.10.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: Microsoft :: Windows",
+]
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+
+[project.urls]
+Homepage = "https://github.com/Ekozmaster/py-rtx-remix"
+Issues = "https://github.com/Ekozmaster/py-rtx-remix/issues"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
