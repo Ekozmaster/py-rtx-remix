@@ -1094,7 +1094,7 @@ class TestDistantLight(TestCase):
         distant_light = DistantLight(
             light_hash=HASH(0x5),
             radiance=Float3D(0.2, 700, 256.7),
-            direction=Float3D(5, 4, 3),
+            direction=Float3D(0.7071, 0.7071, 0),
             angular_diameter=0.456,
         )
         light_struct = distant_light.as_struct()
@@ -1108,10 +1108,19 @@ class TestDistantLight(TestCase):
         distant_light_struct = ctypes.cast(light_struct.pNext, ctypes.POINTER(_LightInfoDistantEXT))[0]
         self.assertEqual(distant_light_struct.sType, _STypes.LIGHT_INFO_DISTANT_EXT)
         self.assertEqual(distant_light_struct.pNext, None)
-        self.assertAlmostEqual(distant_light_struct.direction.x, 5, 4)
-        self.assertAlmostEqual(distant_light_struct.direction.y, 4, 4)
-        self.assertAlmostEqual(distant_light_struct.direction.z, 3, 4)
+        self.assertAlmostEqual(distant_light_struct.direction.x, 0.7071, 4)
+        self.assertAlmostEqual(distant_light_struct.direction.y, 0.7071, 4)
+        self.assertAlmostEqual(distant_light_struct.direction.z, 0, 4)
         self.assertAlmostEqual(distant_light_struct.angularDiameterDegrees, 0.456, 4)
+
+    def test_non_normalized_direction_raises_exception(self):
+        with self.assertRaises(ValueError):
+            DistantLight(
+                light_hash=HASH(0x5),
+                radiance=Float3D(0.2, 700, 256.7),
+                direction=Float3D(0.1, 0.2, 0.3),
+                angular_diameter=0.456,
+            )
 
 
 class TestDomeLight(TestCase):

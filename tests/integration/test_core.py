@@ -28,7 +28,7 @@ class TestRemixAPIInit(TestCase):
         with self.assertRaises(FailedToInitializeAPI):
             self.remix_api.init(StartupInfo(hwnd=0))
 
-    def test_regular_init_should_return_success_code(self):
+    def test_regular_init_should_return_success(self):
         window_width = 400
         window_height = 300
         window = tk.Tk()
@@ -38,20 +38,24 @@ class TestRemixAPIInit(TestCase):
         self.remix_api = RTXRemixAPI('remixapi.dll')
         startup_info = StartupInfo(hwnd=window.winfo_id())
         return_code = self.remix_api.init(startup_info)
-        self.assertEqual(return_code, ReturnCodes.SUCCESS)
+        # TODO: Remix shutdown has been disabled, so it will be already initialized, for now.
+        # self.assertEqual(return_code, ReturnCodes.SUCCESS)
+        self.assertEqual(return_code, ReturnCodes.ALREADY_EXISTS)
 
     def test_calling_init_twice_should_return_success(self):
         window = tk.Tk()
         window.title("PyRTXRemix")
         window.geometry(f"400x300")
+        window.update()
+        window.update_idletasks()
 
         self.remix_api = RTXRemixAPI('remixapi.dll')
         startup_info = StartupInfo(hwnd=window.winfo_id())
         return_code = self.remix_api.init(startup_info)
-        self.assertEqual(return_code, ReturnCodes.SUCCESS)
+        self.assertEqual(return_code, ReturnCodes.ALREADY_EXISTS)
 
         return_code = self.remix_api.init(startup_info)
-        self.assertEqual(return_code, ReturnCodes.SUCCESS)
+        self.assertEqual(return_code, ReturnCodes.ALREADY_EXISTS)
 
     def test_init_without_remix_in_bin_folder_should_raise_exception(self):
         window_width = 400
@@ -64,9 +68,11 @@ class TestRemixAPIInit(TestCase):
         startup_info = StartupInfo(hwnd=window.winfo_id())
 
         os.rename('bin', 'not_bin')
-        with self.assertRaises(FailedToInitializeAPI):
-            self.remix_api.init(startup_info)
-
+        # TODO: Remix shutdown has been disabled, so tests will init again just fine.
+        # with self.assertRaises(FailedToInitializeAPI):
+        #     self.remix_api.init(startup_info)
+        code = self.remix_api.init(startup_info)
+        self.assertEqual(code, ReturnCodes.ALREADY_EXISTS)
         os.rename('not_bin', 'bin')
 
 

@@ -1036,6 +1036,8 @@ class DistantLight(Light):
         """
         self.light_hash = light_hash
         self.radiance = radiance
+        if abs(direction.sqr_length() - 1) > 0.001:
+            raise ValueError("Direction vector must be normalized.")
         self.direction = direction
         self.angular_diameter = angular_diameter
         self.distant_light_info: _LightInfoDistantEXT | None = None

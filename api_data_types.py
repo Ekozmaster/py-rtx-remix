@@ -1,5 +1,6 @@
 import ctypes
 import hashlib
+import math
 import time
 from ctypes import wintypes
 
@@ -167,6 +168,15 @@ class Float2D(ctypes.Structure):
         ("y", ctypes.c_float),
     ]
 
+    def normalized(self):
+        length = math.sqrt(self.sqr_length())
+        if length != 0:
+            return Float2D(self.x / length, self.y / length)
+        return self
+
+    def sqr_length(self):
+        return self.x ** 2 + self.y ** 2
+
 
 class Float3D(ctypes.Structure):
     """ctypes direct mapping to remixapi_Float3D struct"""
@@ -175,6 +185,15 @@ class Float3D(ctypes.Structure):
         ("y", ctypes.c_float),
         ("z", ctypes.c_float),
     ]
+
+    def normalized(self):
+        length = math.sqrt(self.sqr_length())
+        if length != 0:
+            return Float3D(self.x / length, self.y / length, self.z / length)
+        return self
+
+    def sqr_length(self):
+        return self.x ** 2 + self.y ** 2 + self.z ** 2
 
 
 class Float4D(ctypes.Structure):
