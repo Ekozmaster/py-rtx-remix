@@ -59,7 +59,7 @@ class RTXRemixAPI:
         """
         if self._initialized:
             print("Remix API already initialized.")
-            return ReturnCodes.SUCCESS
+            return ReturnCodes.ALREADY_EXISTS
 
         try:
             self._remixapi_dll_handle = ctypes.CDLL(str(self.dll_path))
@@ -69,8 +69,9 @@ class RTXRemixAPI:
         self.startup_info_struct = startup_info.as_struct()
         init_status = self._remixapi_dll_handle.init(ctypes.byref(self.startup_info_struct))
         if init_status == ReturnCodes.ALREADY_EXISTS:
-            # TODO: Why we get this return code from remix api? How should it be handled?
             print("Remix API already initialized.")
+            self._initialized = True
+            return ReturnCodes.ALREADY_EXISTS
 
         elif init_status != ReturnCodes.SUCCESS:
             raise FailedToInitializeAPI(f"Failed to startup Remix. Error code: {init_status} - {ReturnCodes.get_name(init_status)}")
@@ -282,15 +283,13 @@ class RTXRemixAPI:
         if not self._initialized:
             raise APINotInitialized(f"Can't call present without initializing the API first.")
 
-        if not hwnd_override:
-            return_code = self._remixapi_dll_handle.present(None)
-            return return_code
-
+        target_hwnd = hwnd_override or self.startup_info_struct.hwnd
         present_info = _PresentInfo()
-        present_info.hwndOverride = hwnd_override
+        present_info.hwndOverride = target_hwnd
         present_info.sType = _STypes.PRESENT_INFO
         present_info.pNext = 0
         return_code = self._remixapi_dll_handle.present(ctypes.byref(present_info))
+
         if return_code == ReturnCodes.REMIX_DEVICE_WAS_NOT_REGISTERED:
             raise APINotInitialized(f"Can't call present without initializing the API first.")
 
@@ -301,10 +300,12 @@ class RTXRemixAPI:
 
     def shutdown(self):
         if self._remixapi_dll_handle and self._initialized:
-            return_code = self._remixapi_dll_handle.destroy()
+            # TODO: Remix is having troubles with access violation during shutdown. Lets just not for now.
+            return_code = ReturnCodes.SUCCESS  # self._remixapi_dll_handle.destroy()
             if return_code != ReturnCodes.SUCCESS:
                 raise ValueError(f"RemixAPI didn't shutdown happily. Return code {return_code} - {ReturnCodes.get_name(return_code)}")
 
+        del self._remixapi_dll_handle
         self._remixapi_dll_handle = None
         self._initialized = False
 
