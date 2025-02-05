@@ -29,9 +29,14 @@ def _load_obj_from_split(
             for vert in face_primitive:
                 vtn_key = (vert[0], vert[1], vert[2])
                 if vtn_key not in vertices_dict:
+                    # Stupidly, positive indices start at 1, not zero, while negative indices are fine.
+                    pos_idx = int(vert[0]) + (0 if vert[0].startswith('-') else -1)
+                    tex_idx = int(vert[1]) + (0 if vert[1].startswith('-') else -1) if vert[1] else None
+                    nrm_idx = int(vert[2]) + (0 if vert[2].startswith('-') else -1)
                     vertices_dict[vtn_key] = Vertex(
-                        position=vertices[int(vert[0]) - 1], texcoord=texcoords[int(vert[1]) - 1],
-                        normal=normals[int(vert[2]) - 1]
+                        position=vertices[pos_idx],
+                        texcoord=texcoords[tex_idx] if tex_idx is not None else Float2D(0, 0),  # Models with no UVs.
+                        normal=normals[nrm_idx]
                     ).as_struct()
 
         vtn_indices = dict(zip(vertices_dict.keys(), range(len(vertices_dict))))
@@ -73,7 +78,7 @@ def load_obj(file_path: str, mat: Material | None) -> List[Mesh]:
         for line in lines if line.startswith('vt ')
         if (v := line.rsplit(' ', 2))
     ]
-    objects_index = [lines.index(line) for line in lines if line.startswith('o ')] + [None]
+    objects_index = [0] + [lines.index(line) for line in lines if line.startswith('o ')] + [None]
     objs_split = [lines[objects_index[i] + 1:objects_index[i + 1]] for i in range(len(objects_index) - 1)]
     meshes = [
         _load_obj_from_split(obj_split, mat, vertices, normals, texcoords)

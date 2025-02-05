@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "py_rtx_remix"
 version = "0.0.1"
@@ -11,13 +15,11 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: Microsoft :: Windows",
 ]
-license = "MIT"
-license-files = ["LICEN[CS]E*"]
+license = {file = "LICENSE"}
 
 [project.urls]
 Homepage = "https://github.com/Ekozmaster/py-rtx-remix"
 Issues = "https://github.com/Ekozmaster/py-rtx-remix/issues"
 
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+[tool.setuptools.package-data]
+py_rtx_remix = ["remixapi.dll"]

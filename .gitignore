@@ -3,6 +3,8 @@
 .idea/
 .venv/
 .env/
+*.egg-info/
+dist/
 *.pyproj
 *.sln
 CppProperties.json

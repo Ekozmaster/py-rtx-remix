@@ -7,6 +7,8 @@
 ### For users
 ```commandline
 >>> pip install py-rtx-remix
+>>> mkdir bin  # At your project root.
+# Download the latest release or action builds of dxvk-remix and paste inside bin/.
 ```
 
 ### For developers

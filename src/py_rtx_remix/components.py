@@ -616,20 +616,30 @@ class MeshSurface:
         return mesh_surface_info
 
 
+SurfacesArray = ctypes.POINTER(_MeshInfoSurfaceTriangles)
+
+
 class Mesh:
-    def __init__(self, surfaces: List[_MeshInfoSurfaceTriangles], mesh_hash: int = 0x1):
+    def __init__(
+            self, surfaces: List[_MeshInfoSurfaceTriangles] | SurfacesArray, num_surfaces: int = 0,
+            mesh_hash: int = 0x1):
         """
         Defines and manages a Mesh Asset (not instance) within Remix engine.
 
-        :param surfaces: A list of surfaces composing the mesh in ctypes-ready format.
+        :param surfaces: A list of surfaces composing the mesh in ctypes-ready format, or a ctypes pointer to a MeshInfoSurfaceTriangles array.
+        :param num_surfaces: The number of surfaces in the surfaces array if you pass a pointer instead of a list.
         :param mesh_hash: A 64bit uint HASH to uniquely identify this mesh asset. You should manage your own hashes.
         """
         self.handle: ctypes.c_void_p = ctypes.c_void_p(0)
         self.mesh_hash = mesh_hash
-        self.num_surfaces = len(surfaces)
-        self.surfaces_array = (_MeshInfoSurfaceTriangles * self.num_surfaces)()
-        for i, surface in enumerate(surfaces):
-            self.surfaces_array[i] = surface
+        if isinstance(surfaces, ctypes.Array):
+            self.num_surfaces = num_surfaces
+            self.surfaces_array = surfaces
+        else:
+            self.num_surfaces = len(surfaces)
+            self.surfaces_array = (_MeshInfoSurfaceTriangles * self.num_surfaces)()
+            for i, surface in enumerate(surfaces):
+                self.surfaces_array[i] = surface
 
     def as_struct(self) -> _MeshInfo:
         """Returns the internal structure form suitable for DLL interop via ctypes."""
@@ -765,6 +775,7 @@ class MeshInstance:
             self.skeleton.as_struct()
             instance_info.pNext = ctypes.cast(ctypes.byref(self.skeleton.bones_struct), ctypes.c_void_p)
         instance_info.mesh = ctypes.cast(self.mesh.handle, ctypes.c_void_p)
+        self.transform_struct = self.transform.as_struct()
         instance_info.transform = self.transform_struct
         instance_info.doubleSided = self.double_sided
         return instance_info
