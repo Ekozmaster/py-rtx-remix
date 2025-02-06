@@ -17,6 +17,7 @@
 >>> cd py-rtx-remix
 >>> mkdir bin
 # Download the latest release or action builds of dxvk-remix and paste inside bin.
+# https://github.com/NVIDIAGameWorks/dxvk-remix/actions
 # Open x64 Native Tools Command Prompt for VS 20xx and run build_remixapi.bat
 >>> mv remixapi.dll src/py_rtx_remix/
 ```
