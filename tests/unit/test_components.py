@@ -713,6 +713,7 @@ class TestSphereLight(TestCase):
         self.assertAlmostEqual(sphere_light_struct.position.z, 0, 4)
         self.assertAlmostEqual(sphere_light_struct.radius, 0.1, 5)
         self.assertEqual(sphere_light_struct.shaping_hasvalue, 0)
+        self.assertAlmostEqual(sphere_light_struct.volumetricRadianceScale, 1.0, 4)
 
     def test_custom_initialization(self):
         sphere_light = SphereLight(
@@ -720,6 +721,7 @@ class TestSphereLight(TestCase):
             radiance=Float3D(0.2, 700, 256.7),
             position=Float3D(5, 4, 3),
             radius=0.5,
+            volumetric_radiance_scale=3.14,
         )
         light_struct = sphere_light.as_struct()
 
@@ -737,6 +739,7 @@ class TestSphereLight(TestCase):
         self.assertAlmostEqual(sphere_light_struct.position.z, 3, 4)
         self.assertAlmostEqual(sphere_light_struct.radius, 0.5, 5)
         self.assertEqual(sphere_light_struct.shaping_hasvalue, 0)
+        self.assertAlmostEqual(sphere_light_struct.volumetricRadianceScale, 3.14, 4)
 
     def test_initialization_with_shaping_value(self):
         shaping_value = LightShapingInfo()
@@ -750,7 +753,8 @@ class TestSphereLight(TestCase):
             radiance=Float3D(0.2, 700, 256.7),
             position=Float3D(5, 4, 3),
             radius=0.5,
-            shaping_value=shaping_value
+            shaping_value=shaping_value,
+            volumetric_radiance_scale=3.14,
         )
         light_struct = sphere_light.as_struct()
 
@@ -768,6 +772,7 @@ class TestSphereLight(TestCase):
         self.assertAlmostEqual(sphere_light_struct.position.z, 3, 4)
         self.assertAlmostEqual(sphere_light_struct.radius, 0.5, 5)
         self.assertEqual(sphere_light_struct.shaping_hasvalue, 1)
+        self.assertAlmostEqual(sphere_light_struct.volumetricRadianceScale, 3.14, 4)
 
         self.assertAlmostEqual(sphere_light_struct.shaping_value.direction.x, 3, 4)
         self.assertAlmostEqual(sphere_light_struct.shaping_value.direction.y, -1, 4)
@@ -806,6 +811,7 @@ class TestRectLight(TestCase):
         self.assertAlmostEqual(rect_light_struct.direction.y, 0.0, 5)
         self.assertAlmostEqual(rect_light_struct.direction.z, 1.0, 5)
         self.assertEqual(rect_light_struct.shaping_hasvalue, 0)
+        self.assertAlmostEqual(rect_light_struct.volumetricRadianceScale, 1.0, 4)
 
     def test_custom_initialization(self):
         rect_light = RectLight(
@@ -817,6 +823,7 @@ class TestRectLight(TestCase):
             y_axis=Float3D(-0.7072, 0.7072, 0),
             y_size=4.5,
             direction=Float3D(0.54, 0.87, 0.12),
+            volumetric_radiance_scale=3.14,
         )
         light_struct = rect_light.as_struct()
 
@@ -844,6 +851,7 @@ class TestRectLight(TestCase):
         self.assertAlmostEqual(rect_light_struct.direction.y, 0.87, 5)
         self.assertAlmostEqual(rect_light_struct.direction.z, 0.12, 5)
         self.assertEqual(rect_light_struct.shaping_hasvalue, 0)
+        self.assertAlmostEqual(rect_light_struct.volumetricRadianceScale, 3.14, 4)
 
     def test_initialization_with_shaping_value(self):
         shaping_value = LightShapingInfo()
@@ -862,6 +870,7 @@ class TestRectLight(TestCase):
             y_size=4.5,
             direction=Float3D(0.54, 0.87, 0.12),
             shaping_value=shaping_value,
+            volumetric_radiance_scale=3.14,
         )
         light_struct = rect_light.as_struct()
 
@@ -889,6 +898,7 @@ class TestRectLight(TestCase):
         self.assertAlmostEqual(rect_light_struct.direction.y, 0.87, 5)
         self.assertAlmostEqual(rect_light_struct.direction.z, 0.12, 5)
         self.assertEqual(rect_light_struct.shaping_hasvalue, 1)
+        self.assertAlmostEqual(rect_light_struct.volumetricRadianceScale, 3.14, 4)
 
         self.assertAlmostEqual(rect_light_struct.shaping_value.direction.x, 3, 4)
         self.assertAlmostEqual(rect_light_struct.shaping_value.direction.y, -1, 4)
@@ -927,6 +937,7 @@ class TestDiskLight(TestCase):
         self.assertAlmostEqual(disk_light_struct.direction.y, 0.0, 5)
         self.assertAlmostEqual(disk_light_struct.direction.z, 1.0, 5)
         self.assertEqual(disk_light_struct.shaping_hasvalue, 0)
+        self.assertAlmostEqual(disk_light_struct.volumetricRadianceScale, 1.0, 4)
 
     def test_custom_initialization(self):
         disk_light = DiskLight(
@@ -938,6 +949,7 @@ class TestDiskLight(TestCase):
             y_axis=Float3D(-0.7072, 0.7072, 0),
             y_size=4.5,
             direction=Float3D(0.54, 0.87, 0.12),
+            volumetric_radiance_scale=3.14,
         )
         light_struct = disk_light.as_struct()
 
@@ -965,6 +977,7 @@ class TestDiskLight(TestCase):
         self.assertAlmostEqual(disk_light_struct.direction.y, 0.87, 5)
         self.assertAlmostEqual(disk_light_struct.direction.z, 0.12, 5)
         self.assertEqual(disk_light_struct.shaping_hasvalue, 0)
+        self.assertAlmostEqual(disk_light_struct.volumetricRadianceScale, 3.14, 4)
 
     def test_initialization_with_shaping_value(self):
         shaping_value = LightShapingInfo()
@@ -983,6 +996,7 @@ class TestDiskLight(TestCase):
             y_size=4.5,
             direction=Float3D(0.54, 0.87, 0.12),
             shaping_value=shaping_value,
+            volumetric_radiance_scale=3.14,
         )
         light_struct = disk_light.as_struct()
 
@@ -1010,6 +1024,7 @@ class TestDiskLight(TestCase):
         self.assertAlmostEqual(disk_light_struct.direction.y, 0.87, 5)
         self.assertAlmostEqual(disk_light_struct.direction.z, 0.12, 5)
         self.assertEqual(disk_light_struct.shaping_hasvalue, 1)
+        self.assertAlmostEqual(disk_light_struct.volumetricRadianceScale, 3.14, 4)
 
         self.assertAlmostEqual(disk_light_struct.shaping_value.direction.x, 3, 4)
         self.assertAlmostEqual(disk_light_struct.shaping_value.direction.y, -1, 4)
@@ -1041,6 +1056,7 @@ class TestCylinderLight(TestCase):
         self.assertAlmostEqual(cylinder_light_struct.axis.y, 1.0, 5)
         self.assertAlmostEqual(cylinder_light_struct.axis.z, 0.0, 5)
         self.assertAlmostEqual(cylinder_light_struct.axisLength, 1.0, 5)
+        self.assertAlmostEqual(cylinder_light_struct.volumetricRadianceScale, 1.0, 4)
 
     def test_custom_initialization(self):
         cylinder_light = CylinderLight(
@@ -1049,7 +1065,8 @@ class TestCylinderLight(TestCase):
             position=Float3D(5, 4, 3),
             axis=Float3D(0.7072, 0.7072, 0),
             axis_length=3.5,
-            radius=3.19
+            radius=3.19,
+            volumetric_radiance_scale=3.14,
         )
         light_struct = cylinder_light.as_struct()
 
@@ -1070,6 +1087,7 @@ class TestCylinderLight(TestCase):
         self.assertAlmostEqual(cylinder_light_struct.axis.z, 0.0, 5)
         self.assertAlmostEqual(cylinder_light_struct.axisLength, 3.5, 5)
         self.assertAlmostEqual(cylinder_light_struct.radius, 3.19, 5)
+        self.assertAlmostEqual(cylinder_light_struct.volumetricRadianceScale, 3.14, 4)
 
 
 class TestDistantLight(TestCase):
@@ -1090,6 +1108,7 @@ class TestDistantLight(TestCase):
         self.assertAlmostEqual(distant_light_struct.direction.y, -1, 4)
         self.assertAlmostEqual(distant_light_struct.direction.z, 0, 4)
         self.assertAlmostEqual(distant_light_struct.angularDiameterDegrees, 0.1, 4)
+        self.assertAlmostEqual(distant_light_struct.volumetricRadianceScale, 1.0, 4)
 
     def test_custom_initialization(self):
         distant_light = DistantLight(
@@ -1097,6 +1116,7 @@ class TestDistantLight(TestCase):
             radiance=Float3D(0.2, 700, 256.7),
             direction=Float3D(0.7071, 0.7071, 0),
             angular_diameter=0.456,
+            volumetric_radiance_scale=3.14,
         )
         light_struct = distant_light.as_struct()
 
@@ -1113,6 +1133,7 @@ class TestDistantLight(TestCase):
         self.assertAlmostEqual(distant_light_struct.direction.y, 0.7071, 4)
         self.assertAlmostEqual(distant_light_struct.direction.z, 0, 4)
         self.assertAlmostEqual(distant_light_struct.angularDiameterDegrees, 0.456, 4)
+        self.assertAlmostEqual(distant_light_struct.volumetricRadianceScale, 3.14, 4)
 
     def test_non_normalized_direction_raises_exception(self):
         with self.assertRaises(ValueError):
@@ -1121,6 +1142,7 @@ class TestDistantLight(TestCase):
                 radiance=Float3D(0.2, 700, 256.7),
                 direction=Float3D(0.1, 0.2, 0.3),
                 angular_diameter=0.456,
+                volumetric_radiance_scale=3.14,
             )
 
 
@@ -1377,6 +1399,13 @@ class TestOpacitySSSData(TestCase):
         self.assertAlmostEqual(sss_struct.subsurfaceSingleScatteringAlbedo.y, 0, 4)
         self.assertAlmostEqual(sss_struct.subsurfaceSingleScatteringAlbedo.z, 0, 4)
         self.assertAlmostEqual(sss_struct.subsurfaceVolumetricAnisotropy, 0, 4)
+        self.assertEqual(sss_struct.subsurfaceDiffusionProfile, 0)
+        self.assertAlmostEqual(sss_struct.subsurfaceRadius.x, 0, 4)
+        self.assertAlmostEqual(sss_struct.subsurfaceRadius.y, 0, 4)
+        self.assertAlmostEqual(sss_struct.subsurfaceRadius.z, 0, 4)
+        self.assertAlmostEqual(sss_struct.subsurfaceRadiusScale, 0, 4)
+        self.assertAlmostEqual(sss_struct.subsurfaceMaxSampleRadius, 0, 4)
+        self.assertEqual(sss_struct.subsurfaceRadiusTexture, "")
 
     def test_custom_initialization(self):
         sss_data = OpacitySSSData(
@@ -1387,6 +1416,11 @@ class TestOpacitySSSData(TestCase):
             measurement_distance=0.5,
             single_scattering_albedo=Float3D(0.87, 0.3, 0.8),
             volumetric_anisotropy=0.4,
+            use_diffusion_profile=True,
+            radius=Float3D(1, 2, 3),
+            radius_scale=3.14,
+            max_sample_radius=10,
+            radius_texture=Path("sss_radius.dds"),
         )
         sss_struct = sss_data.as_struct()
 
@@ -1403,6 +1437,13 @@ class TestOpacitySSSData(TestCase):
         self.assertAlmostEqual(sss_struct.subsurfaceSingleScatteringAlbedo.y, 0.3, 4)
         self.assertAlmostEqual(sss_struct.subsurfaceSingleScatteringAlbedo.z, 0.8, 4)
         self.assertAlmostEqual(sss_struct.subsurfaceVolumetricAnisotropy, 0.4, 4)
+        self.assertEqual(sss_struct.subsurfaceDiffusionProfile, 1)
+        self.assertAlmostEqual(sss_struct.subsurfaceRadius.x, 1, 4)
+        self.assertAlmostEqual(sss_struct.subsurfaceRadius.y, 2, 4)
+        self.assertAlmostEqual(sss_struct.subsurfaceRadius.z, 3, 4)
+        self.assertAlmostEqual(sss_struct.subsurfaceRadiusScale, 3.14, 4)
+        self.assertAlmostEqual(sss_struct.subsurfaceMaxSampleRadius, 10, 4)
+        self.assertEqual(sss_struct.subsurfaceRadiusTexture, "sss_radius.dds")
 
 
 class TestTranslucentPBR(TestCase):

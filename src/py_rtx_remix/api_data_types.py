@@ -43,6 +43,7 @@ class CategoryFlags:
     THIRD_PERSON_PLAYER_BODY = 1 << 19
     IGNORE_BAKED_LIGHTING = 1 << 20
     IGNORE_ALPHA_CHANNEL = 1 << 21
+    IGNORE_TRANSPARENCY_LAYER = 1 << 22
 
 
 class ReturnCodes:
@@ -374,6 +375,7 @@ class _LightInfoSphereEXT(ctypes.Structure):
         ("radius", ctypes.c_float),
         ("shaping_hasvalue", ctypes.c_uint32),
         ("shaping_value", _LightInfoLightShaping),
+        ("volumetricRadianceScale", ctypes.c_float),
     ]
 
 
@@ -394,6 +396,7 @@ class _LightInfoRectEXT(ctypes.Structure):
         ("direction", Float3D),
         ("shaping_hasvalue", ctypes.c_uint32),
         ("shaping_value", _LightInfoLightShaping),
+        ("volumetricRadianceScale", ctypes.c_float),
     ]
 
 
@@ -414,6 +417,7 @@ class _LightInfoDiskEXT(ctypes.Structure):
         ("direction", Float3D),
         ("shaping_hasvalue", ctypes.c_uint32),
         ("shaping_value", _LightInfoLightShaping),
+        ("volumetricRadianceScale", ctypes.c_float),
     ]
 
 
@@ -430,6 +434,7 @@ class _LightInfoCylinderEXT(ctypes.Structure):
         ("radius", ctypes.c_float),
         ("axis", Float3D),
         ("axisLength", ctypes.c_float),
+        ("volumetricRadianceScale", ctypes.c_float),
     ]
 
 
@@ -444,6 +449,7 @@ class _LightInfoDistantEXT(ctypes.Structure):
         ("pNext", ctypes.c_void_p),
         ("direction", Float3D),
         ("angularDiameterDegrees", ctypes.c_float),
+        ("volumetricRadianceScale", ctypes.c_float),
     ]
 
 
@@ -596,6 +602,11 @@ class _MaterialInfoOpaqueSubsurfaceEXT(ctypes.Structure):
         ("subsurfaceMeasurementDistance", ctypes.c_float),
         ("subsurfaceSingleScatteringAlbedo", Float3D),
         ("subsurfaceVolumetricAnisotropy", ctypes.c_float),
+        ("subsurfaceDiffusionProfile", ctypes.c_uint32),
+        ("subsurfaceRadius", Float3D),
+        ("subsurfaceRadiusScale", ctypes.c_float),
+        ("subsurfaceMaxSampleRadius", ctypes.c_float),
+        ("subsurfaceRadiusTexture", ctypes.c_wchar_p),
     ]
 
 

@@ -273,6 +273,11 @@ class OpacitySSSData:
         measurement_distance: float = 0.1,
         single_scattering_albedo: Float3D = Float3D(0, 0, 0),
         volumetric_anisotropy: float = 0,
+        use_diffusion_profile: bool = False,
+        radius: Float3D = Float3D(0, 0, 0),
+        radius_scale: float = 0,
+        max_sample_radius: float = 0,
+        radius_texture: str | Path = "",
     ):
         # TODO: Add docstring.
         self.transmittance_texture = transmittance_texture
@@ -282,6 +287,11 @@ class OpacitySSSData:
         self.measurement_distance = measurement_distance
         self.single_scattering_albedo = single_scattering_albedo
         self.volumetric_anisotropy = volumetric_anisotropy
+        self.use_diffusion_profile = use_diffusion_profile
+        self.radius = radius
+        self.radius_scale = radius_scale
+        self.max_sample_radius = max_sample_radius
+        self.radius_texture = radius_texture
         self.sss_info: _MaterialInfoOpaqueSubsurfaceEXT | None = None
 
     def as_struct(self):
@@ -296,6 +306,11 @@ class OpacitySSSData:
         self.sss_info.subsurfaceMeasurementDistance = self.measurement_distance
         self.sss_info.subsurfaceSingleScatteringAlbedo = self.single_scattering_albedo
         self.sss_info.subsurfaceVolumetricAnisotropy = self.volumetric_anisotropy
+        self.sss_info.subsurfaceDiffusionProfile = self.use_diffusion_profile
+        self.sss_info.subsurfaceRadius = self.radius
+        self.sss_info.subsurfaceRadiusScale = self.radius_scale
+        self.sss_info.subsurfaceMaxSampleRadius = self.max_sample_radius
+        self.sss_info.subsurfaceRadiusTexture = str(self.radius_texture)
         return self.sss_info
 
 
@@ -844,6 +859,7 @@ class SphereLight(Light):
         position: Float3D = Float3D(0, 0, 0),
         radius: float = 0.1,
         shaping_value: LightShapingInfo = None,
+        volumetric_radiance_scale: float = 1.0,
     ):
         """
         Defines a Sphere light type.
@@ -853,11 +869,13 @@ class SphereLight(Light):
         :param position: The light position.
         :param radius: The radius of the sphere light. Anything inside it won't be lit by it.
         :param shaping_value: The focal cone shaping for the Light.
+        :param volumetric_radiance_scale: Artistic scale for how much the light contributes to volumetrics.
         """
         self.position = position
         self.radius = radius
         self.shaping_value = shaping_value
         self.sphere_light_info: _LightInfoSphereEXT | None = None
+        self.volumetric_radiance_scale = volumetric_radiance_scale
         super().__init__(light_hash, radiance)
 
     def as_struct(self, _: None = None) -> _LightInfo:
@@ -870,6 +888,7 @@ class SphereLight(Light):
         self.sphere_light_info.shaping_hasvalue = 1 if self.shaping_value else 0
         if self.shaping_value:
             self.sphere_light_info.shaping_value = self.shaping_value.as_struct()
+        self.sphere_light_info.volumetricRadianceScale = self.volumetric_radiance_scale
 
         self_pointer = ctypes.cast(ctypes.byref(self.sphere_light_info), ctypes.c_void_p)
         return super().as_struct(self_pointer)
@@ -887,6 +906,7 @@ class RectLight(Light):
         y_size: float = 1.0,
         direction: Float3D = Float3D(0, 0, 1),
         shaping_value: LightShapingInfo = None,
+        volumetric_radiance_scale: float = 1.0,
     ):
         """
         Defines a Rect light type.
@@ -900,6 +920,7 @@ class RectLight(Light):
         :param y_size: Rect's Vertical length.
         :param direction: Where the rect shape is facing at.
         :param shaping_value: The focal cone shaping for the Light.
+        :param volumetric_radiance_scale: Artistic scale for how much the light contributes to volumetrics.
         """
         self.position = position
         self.x_axis = x_axis
@@ -909,6 +930,7 @@ class RectLight(Light):
         self.direction = direction
         self.shaping_value = shaping_value
         self.rect_light_info: _LightInfoRectEXT | None = None
+        self.volumetric_radiance_scale = volumetric_radiance_scale
         super().__init__(light_hash, radiance)
 
     def as_struct(self, _: None = None) -> _LightInfo:
@@ -925,6 +947,7 @@ class RectLight(Light):
         self.rect_light_info.shaping_hasvalue = 1 if self.shaping_value else 0
         if self.shaping_value:
             self.rect_light_info.shaping_value = self.shaping_value.as_struct()
+        self.rect_light_info.volumetricRadianceScale = self.volumetric_radiance_scale
 
         self_pointer = ctypes.cast(ctypes.byref(self.rect_light_info), ctypes.c_void_p)
         return super().as_struct(self_pointer)
@@ -942,6 +965,7 @@ class DiskLight(Light):
         y_size: float = 1.0,
         direction: Float3D = Float3D(0, 0, 1),
         shaping_value: LightShapingInfo = None,
+        volumetric_radiance_scale: float = 1.0,
     ):
         """
         Defines a Disk light type. Similar to Rect lights with separate X and Y axis, they're Ellipse-shaped.
@@ -955,6 +979,7 @@ class DiskLight(Light):
         :param y_size: Disk's Vertical length.
         :param direction: Where the rect shape is facing at.
         :param shaping_value: The focal cone shaping for the Light.
+        :param volumetric_radiance_scale: Artistic scale for how much the light contributes to volumetrics.
         """
         self.position = position
         self.x_axis = x_axis
@@ -964,6 +989,7 @@ class DiskLight(Light):
         self.direction = direction
         self.shaping_value = shaping_value
         self.disk_light_info: _LightInfoDiskEXT | None = None
+        self.volumetric_radiance_scale = volumetric_radiance_scale
         super().__init__(light_hash, radiance)
 
     def as_struct(self, _: None = None) -> _LightInfo:
@@ -980,6 +1006,7 @@ class DiskLight(Light):
         self.disk_light_info.shaping_hasvalue = 1 if self.shaping_value else 0
         if self.shaping_value:
             self.disk_light_info.shaping_value = self.shaping_value.as_struct()
+        self.disk_light_info.volumetricRadianceScale = self.volumetric_radiance_scale
 
         self_pointer = ctypes.cast(ctypes.byref(self.disk_light_info), ctypes.c_void_p)
         return super().as_struct(self_pointer)
@@ -994,6 +1021,7 @@ class CylinderLight(Light):
         radius: float = 0.1,
         axis: Float3D = Float3D(0, 1, 0),
         axis_length: float = 1.0,
+        volumetric_radiance_scale: float = 1.0,
     ):
         """
         Defines a Cylinder light type. Good for Tube-shaped, neon or fluorescent lamps.
@@ -1004,12 +1032,14 @@ class CylinderLight(Light):
         :param radius: The tube radius or Thickness.
         :param axis: Direction vector for the tube.
         :param axis_length: Half-length of the tube.
+        :param volumetric_radiance_scale: Artistic scale for how much the light contributes to volumetrics.
         """
         self.position = position
         self.radius = radius
         self.axis = axis
         self.axis_length = axis_length
         self.cylinder_light_info: _LightInfoCylinderEXT | None = None
+        self.volumetric_radiance_scale = volumetric_radiance_scale
         super().__init__(light_hash, radiance)
 
     def as_struct(self, _: None = None) -> _LightInfo:
@@ -1021,6 +1051,7 @@ class CylinderLight(Light):
         self.cylinder_light_info.radius = self.radius
         self.cylinder_light_info.axis = self.axis
         self.cylinder_light_info.axisLength = self.axis_length
+        self.cylinder_light_info.volumetricRadianceScale = self.volumetric_radiance_scale
         self_pointer = ctypes.cast(ctypes.byref(self.cylinder_light_info), ctypes.c_void_p)
         return super().as_struct(self_pointer)
 
@@ -1032,6 +1063,7 @@ class DistantLight(Light):
         radiance: Float3D = Float3D(1, 1, 1),
         direction: Float3D = Float3D(0, -1, 0),
         angular_diameter: float = 0.1,
+        volumetric_radiance_scale: float = 1.0,
     ):
         """
         Defines a Distant/Directional light type. Like Sun, or Moon. Lights so far away that position doesn't matter.
@@ -1044,6 +1076,7 @@ class DistantLight(Light):
         :param radiance: RGB Color+Intensity of the light encoded in Float3D format.
         :param direction: Direction the light source is point to.
         :param angular_diameter: In degrees, maps to the light source's diameter to produce soft shadows.
+        :param volumetric_radiance_scale: Artistic scale for how much the light contributes to volumetrics.
         """
         self.light_hash = light_hash
         self.radiance = radiance
@@ -1052,6 +1085,7 @@ class DistantLight(Light):
         self.direction = direction
         self.angular_diameter = angular_diameter
         self.distant_light_info: _LightInfoDistantEXT | None = None
+        self.volumetric_radiance_scale = volumetric_radiance_scale
         super().__init__(light_hash, radiance)
 
     def as_struct(self, _: None = None) -> _LightInfo:
@@ -1061,6 +1095,7 @@ class DistantLight(Light):
         self.distant_light_info.pNext = None
         self.distant_light_info.direction = self.direction
         self.distant_light_info.angularDiameterDegrees = self.angular_diameter
+        self.distant_light_info.volumetricRadianceScale = self.volumetric_radiance_scale
         self_pointer = ctypes.cast(ctypes.byref(self.distant_light_info), ctypes.c_void_p)
         return super().as_struct(self_pointer)
 

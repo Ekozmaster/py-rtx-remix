@@ -4,6 +4,7 @@
 .venv/
 .env/
 *.egg-info/
+.pypirc
 dist/
 *.pyproj
 *.sln

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "py_rtx_remix"
-version = "0.0.1"
+version = "0.0.2"
 authors = [
   { name="Emanuel Kozerski (E-man)", email="emanualkoz.97@gmail.com" },
 ]
